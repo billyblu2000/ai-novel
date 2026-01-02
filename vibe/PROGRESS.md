@@ -26,6 +26,7 @@
 - [x] 安装并配置 Shadcn/ui
 - [x] 配置 ESLint + Prettier
 - [x] 创建基础目录结构 (`src/app`, `src/components`, `src/lib`, `src/types`)
+- [x] 首次部署到 Vercel (尽早验证部署流程)
 
 ### 1.2 基础配置
 - [ ] 配置 Zustand store 基础结构
@@ -231,7 +232,6 @@
 ### 9.3 最终测试
 - [ ] 全流程手动测试
 - [ ] 修复发现的 Bug
-- [ ] 部署到 Vercel
 
 ---
 

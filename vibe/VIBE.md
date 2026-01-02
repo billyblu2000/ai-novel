@@ -2,11 +2,20 @@
 
 > AI 辅助开发的工作流程与约定
 
+## 0. 项目信息
+
+| 项目 | 地址 |
+|------|------|
+| GitHub | https://github.com/billyblu2000/ai-novel |
+| Vercel | https://ai-novel-ten.vercel.app/ |
+
+---
+
 ## 1. Git 提交规范
 
 ### 1.1 自动提交时机
 
-AI 在完成以下节点时自动执行 `git add . && git commit`：
+AI 在完成以下节点时自动执行 `git add . && git commit && git push`：
 
 | 时机 | 示例 |
 |------|------|
