@@ -212,7 +212,7 @@ export function CreateEntityDialog({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="描述这个实体..."
-              className="min-h-[80px] resize-none"
+              className="min-h-[120px] resize-y"
             />
           </div>
 

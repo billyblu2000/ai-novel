@@ -137,7 +137,7 @@ export function EntityEditForm({
           id="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="text-sm min-h-[80px] resize-none"
+          className="text-sm min-h-[120px] resize-y"
           placeholder="实体描述..."
         />
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { CalendarDays, MapPin, FileText } from "lucide-react";
 import { EntityAwareEditor } from "./entity-aware-editor";
@@ -17,9 +17,10 @@ import {
 } from "@/components/ui/select";
 import { Node, FileMetadata, NodeStatus } from "@/types";
 import { useNodes } from "@/lib/hooks";
-import { useEntities } from "@/lib/hooks/use-entities";
+import { useEntities, useMentions } from "@/lib/hooks/use-entities";
 import { useEditorStore } from "@/lib/stores";
 import { cn } from "@/lib/utils";
+import { countEntityFrequencies } from "@/lib/entity-matcher";
 
 interface FileEditorProps {
   node: Node;
@@ -29,6 +30,7 @@ interface FileEditorProps {
 export function FileEditor({ node, projectId }: FileEditorProps) {
   const { updateNode, isUpdating } = useNodes(projectId);
   const { entities } = useEntities(projectId);
+  const { updateMentions } = useMentions(node.id);
   const { isDirty, setDirty, setSaving, setLastSavedAt } = useEditorStore();
 
   const [content, setContent] = useState(node.content || "");
@@ -42,6 +44,9 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
     metadata?.ignored_entities || []
   );
 
+  // Track last synced mentions to avoid unnecessary updates
+  const lastMentionsSyncRef = useRef<string>("");
+
   // Reset state when node changes
   useEffect(() => {
     setContent(node.content || "");
@@ -51,7 +56,40 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
     setTimestamp(meta?.timestamp || "");
     setIgnoredEntities(meta?.ignored_entities || []);
     setDirty(false);
+    lastMentionsSyncRef.current = "";
   }, [node.id, node.content, node.summary, node.metadata, setDirty]);
+
+  // Sync mentions when content changes (debounced)
+  const syncMentions = useCallback((textContent: string) => {
+    if (!entities.length) return;
+
+    // Extract plain text from HTML
+    const plainText = textContent.replace(/<[^>]*>/g, "");
+    
+    // Count entity frequencies
+    const frequencies = countEntityFrequencies(plainText, entities, ignoredEntities);
+    
+    // Create mentions hash to check if update is needed
+    const mentionsHash = Array.from(frequencies.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([id, freq]) => `${id}:${freq}`)
+      .join("|");
+    
+    // Skip if mentions haven't changed
+    if (mentionsHash === lastMentionsSyncRef.current) return;
+    lastMentionsSyncRef.current = mentionsHash;
+    
+    // Convert to mentions array
+    const mentions = Array.from(frequencies.entries()).map(([entity_id, frequency]) => ({
+      entity_id,
+      frequency,
+    }));
+    
+    // Update mentions in database
+    if (mentions.length > 0 || lastMentionsSyncRef.current !== "") {
+      updateMentions({ nodeId: node.id, mentions });
+    }
+  }, [entities, ignoredEntities, node.id, updateMentions]);
 
   // Calculate word count (Chinese characters)
   const calculateWordCount = useCallback((text: string): number => {
@@ -85,6 +123,10 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
           ignored_entities: ignoredEntities,
         },
       });
+      
+      // Sync mentions after save
+      syncMentions(content);
+      
       setDirty(false);
       setLastSavedAt(new Date());
       toast.success("保存成功");
@@ -103,6 +145,7 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
     ignoredEntities,
     updateNode,
     calculateWordCount,
+    syncMentions,
     setDirty,
     setSaving,
     setLastSavedAt,
@@ -122,10 +165,13 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
       },
     });
 
+    // Sync mentions after auto-save
+    syncMentions(newContent);
+
     setDirty(false);
     setLastSavedAt(new Date());
     setSaving(false);
-  }, [node.id, metadata, ignoredEntities, updateNode, calculateWordCount, setDirty, setSaving, setLastSavedAt]);
+  }, [node.id, metadata, ignoredEntities, updateNode, calculateWordCount, syncMentions, setDirty, setSaving, setLastSavedAt]);
 
   const handleIgnoreEntity = useCallback((entityName: string) => {
     if (!ignoredEntities.includes(entityName)) {
