@@ -106,7 +106,11 @@ export function EditorLayout({ project, user, profile }: EditorLayoutProps) {
               onNodeSelect={handleNodeSelect}
             />
           ) : (
-            <Dashboard projectId={project.id} projectTitle={project.title} />
+            <Dashboard
+              projectId={project.id}
+              projectTitle={project.title}
+              projectDescription={project.description ?? null}
+            />
           )}
         </AppShell>
       </div>

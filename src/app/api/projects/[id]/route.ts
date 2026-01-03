@@ -12,6 +12,7 @@ import {
 
 const updateProjectSchema = z.object({
   title: z.string().min(1, "标题不能为空").max(100, "标题最多100个字符").optional(),
+  description: z.string().max(1000, "简介最多1000个字符").optional(),
   cover_image: z.string().url().nullable().optional(),
 });
 

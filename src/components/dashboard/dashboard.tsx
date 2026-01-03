@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNodes, countWords, countNodesByType } from "@/lib/hooks";
 import { Node, FileMetadata } from "@/types";
 import { formatRelativeTime } from "@/lib/utils/date";
+import { Button } from "@/components/ui/button";
+import { EditProjectDialog } from "@/components/projects";
 import {
   BookOpen,
   FileText,
@@ -14,15 +16,29 @@ import {
   Clock,
   CheckCircle2,
   Circle,
+  Pencil,
 } from "lucide-react";
 
 interface DashboardProps {
   projectId: string;
   projectTitle: string;
+  projectDescription?: string | null;
 }
 
-export function Dashboard({ projectId, projectTitle }: DashboardProps) {
+export function Dashboard({ projectId, projectTitle, projectDescription }: DashboardProps) {
   const { nodes, isLoading } = useNodes(projectId);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const projectForEdit = useMemo(
+    () => ({
+      id: projectId,
+      title: projectTitle,
+      description: projectDescription || "",
+    }),
+    [projectId, projectTitle, projectDescription]
+  );
+
+  const handleOpenEdit = useCallback(() => setEditOpen(true), []);
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -122,10 +138,28 @@ export function Dashboard({ projectId, projectTitle }: DashboardProps) {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold">{projectTitle}</h1>
-        <p className="text-muted-foreground">项目概览</p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold truncate">{projectTitle}</h1>
+          {projectDescription ? (
+            <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap break-words">
+              {projectDescription}
+            </p>
+          ) : (
+            <p className="text-muted-foreground">项目概览</p>
+          )}
+        </div>
+        <Button variant="outline" size="sm" onClick={handleOpenEdit}>
+          <Pencil className="h-4 w-4 mr-2" />
+          编辑信息
+        </Button>
       </div>
+
+      <EditProjectDialog
+        project={projectForEdit}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

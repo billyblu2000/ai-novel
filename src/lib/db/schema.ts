@@ -38,6 +38,7 @@ export const projects = pgTable("projects", {
     .notNull()
     .references(() => profiles.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
+  description: text("description").default("").notNull(),
   coverImage: text("cover_image"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()

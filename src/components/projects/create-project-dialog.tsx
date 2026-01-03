@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,6 +25,7 @@ interface CreateProjectDialogProps {
 export function CreateProjectDialog({ trigger }: CreateProjectDialogProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
@@ -43,7 +45,10 @@ export function CreateProjectDialog({ trigger }: CreateProjectDialogProps) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ title: title.trim() }),
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim() || undefined,
+        }),
       });
 
       if (!response.ok) {
@@ -56,6 +61,7 @@ export function CreateProjectDialog({ trigger }: CreateProjectDialogProps) {
       toast.success("项目创建成功");
       setOpen(false);
       setTitle("");
+      setDescription("");
       
       // 刷新项目列表（编辑器页面尚未实现，暂时留在项目列表）
       router.refresh();
@@ -93,6 +99,17 @@ export function CreateProjectDialog({ trigger }: CreateProjectDialogProps) {
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="例如：我的第一部小说"
                 autoFocus
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="description">项目简介</Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="一句话设定 / 世界观梗概（可选）"
                 disabled={isLoading}
               />
             </div>

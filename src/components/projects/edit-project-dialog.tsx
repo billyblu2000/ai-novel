@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Project } from "@/lib/db/schema";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,11 +13,18 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+type EditableProjectInfo = {
+  id: string;
+  title: string;
+  description?: string | null;
+};
+
 interface EditProjectDialogProps {
-  project: Project | null;
+  project: EditableProjectInfo | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -29,6 +35,7 @@ export function EditProjectDialog({
   onOpenChange,
 }: EditProjectDialogProps) {
   const [title, setTitle] = useState(project?.title || "");
+  const [description, setDescription] = useState(project?.description || "");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
@@ -36,6 +43,7 @@ export function EditProjectDialog({
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen && project) {
       setTitle(project.title);
+      setDescription(project.description || "");
     }
     onOpenChange(newOpen);
   };
@@ -58,7 +66,10 @@ export function EditProjectDialog({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ title: title.trim() }),
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim() || "",
+        }),
       });
 
       if (!response.ok) {
@@ -93,6 +104,17 @@ export function EditProjectDialog({
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="输入项目标题"
                 autoFocus
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="edit-description">项目简介</Label>
+              <Textarea
+                id="edit-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="一句话设定 / 世界观梗概（可选）"
                 disabled={isLoading}
               />
             </div>

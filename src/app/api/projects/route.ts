@@ -12,6 +12,7 @@ import { generateKeyBetween } from "fractional-indexing";
 
 const createProjectSchema = z.object({
   title: z.string().min(1, "标题不能为空").max(100, "标题最多100个字符"),
+  description: z.string().max(1000, "简介最多1000个字符").optional(),
 });
 
 // GET /api/projects - 获取当前用户的所有项目
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: auth.user.id,
         title: parsed.data.title,
+        description: parsed.data.description ?? "",
       })
       .select()
       .single();
