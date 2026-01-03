@@ -7,7 +7,7 @@
 | 阶段 | 状态 | 完成度 |
 |------|------|--------|
 | 项目初始化 | ✅ 已完成 | 100% |
-| 数据库 & 认证 | 🔲 未开始 | 0% |
+| 数据库 & 认证 | 🔄 进行中 | 50% |
 | 核心 UI 框架 | 🔲 未开始 | 0% |
 | 文件树 (Binder) | 🔲 未开始 | 0% |
 | 编辑器 | 🔲 未开始 | 0% |
@@ -46,14 +46,14 @@
 ## Phase 2: 数据库 & 认证
 
 ### 2.1 数据库 Schema
-- [ ] 创建 `profiles` 表 + RLS
-- [ ] 创建 `projects` 表 + RLS
-- [ ] 创建 `nodes` 表 + RLS
-- [ ] 创建 `entities` 表 + RLS
-- [ ] 创建 `mentions` 表 + RLS
-- [ ] 创建 `node_versions` 表 + RLS
-- [ ] 配置级联删除约束
-- [ ] 创建 Drizzle schema 文件
+- [x] 创建 `profiles` 表 + RLS
+- [x] 创建 `projects` 表 + RLS
+- [x] 创建 `nodes` 表 + RLS
+- [x] 创建 `entities` 表 + RLS
+- [x] 创建 `mentions` 表 + RLS
+- [x] 创建 `node_versions` 表 + RLS
+- [x] 配置级联删除约束
+- [x] 创建 Drizzle schema 文件
 
 ### 2.2 认证系统
 - [ ] 配置 Supabase Auth
@@ -239,6 +239,7 @@
 
 | 日期 | 变更内容 |
 |------|----------|
+| 2026-01-03 | 完成 Phase 2.1 数据库 Schema |
 | 2026-01-03 | 完成 Phase 1.3 Supabase 初始化 |
 | 2026-01-03 | 完成 Phase 1.2 基础配置 |
 | 2026-01-03 | 完成 Phase 1.1 环境搭建 |
