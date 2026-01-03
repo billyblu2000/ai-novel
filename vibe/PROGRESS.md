@@ -10,8 +10,8 @@
 | 数据库 & 认证 | ✅ 已完成 | 100% |
 | 核心 UI 框架 | ✅ 已完成 | 100% |
 | 文件树 (Binder) | ✅ 已完成 | 100% |
-| 编辑器 | 🔄 进行中 | 75% |
-| 实体管理 | 🔲 未开始 | 0% |
+| 编辑器 | ✅ 已完成 | 100% |
+| 实体管理 | ✅ 已完成 | 100% |
 | AI 功能 | 🔲 未开始 | 0% |
 | 时间线 | 🔲 未开始 | 0% |
 | 优化 & 收尾 | 🔲 未开始 | 0% |
@@ -147,30 +147,30 @@
 ## Phase 6: 实体管理
 
 ### 6.1 数据层
-- [ ] 实现 `useEntities` hook
-- [ ] 实现实体 CRUD API routes
-- [ ] 实现 Mentions 更新逻辑
+- [x] 实现 `useEntities` hook
+- [x] 实现实体 CRUD API routes
+- [x] 实现 Mentions 更新逻辑
 
 ### 6.2 Right Sidebar
-- [ ] 创建 `EntitySidebar` 组件
-- [ ] 实现 Context Mode (当前场景关联实体)
-- [ ] 实现 Browse Mode (按类型分组)
-- [ ] 创建实体卡片组件
-- [ ] 实现实体详情展开
+- [x] 创建 `EntitySidebar` 组件
+- [x] 实现 Context Mode (当前场景关联实体)
+- [x] 实现 Browse Mode (按类型分组)
+- [x] 创建实体卡片组件
+- [x] 实现实体详情展开
 
 ### 6.3 实体 CRUD
-- [ ] 创建新实体 Dialog
-- [ ] 实现实体编辑 (内联)
-- [ ] 实现实体删除
-- [ ] 实现别名管理
-- [ ] 实现属性 (attributes) 编辑
+- [x] 创建新实体 Dialog
+- [x] 实现实体编辑 (内联)
+- [x] 实现实体删除
+- [x] 实现别名管理
+- [x] 实现属性 (attributes) 编辑
 
 ### 6.4 实体高亮
-- [ ] 实现 Aho-Corasick 匹配 (Web Worker)
-- [ ] 创建 Tiptap 高亮扩展
-- [ ] 实现 Hover 卡片 (Tooltip)
-- [ ] 实现右键"忽略此匹配"
-- [ ] 存储 `ignored_entities` 到 metadata
+- [x] 实现 Aho-Corasick 匹配 (Web Worker)
+- [x] 创建 Tiptap 高亮扩展
+- [x] 实现 Hover 卡片 (Tooltip)
+- [x] 实现右键"忽略此匹配"
+- [x] 存储 `ignored_entities` 到 metadata
 
 ---
 
@@ -239,6 +239,7 @@
 
 | 日期 | 变更内容 |
 |------|----------|
+| 2026-01-03 | 完成 Phase 6.1-6.4 实体管理功能 |
 | 2026-01-03 | 完成 Phase 5.1-5.3 编辑器功能 |
 | 2026-01-03 | 完成 Phase 4.3 项目仪表盘 |
 | 2026-01-03 | 完成 Phase 4.2 文件树 UI 组件 |

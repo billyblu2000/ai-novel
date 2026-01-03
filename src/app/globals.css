@@ -203,3 +203,53 @@
   --tw-prose-th-borders: var(--border);
   --tw-prose-td-borders: var(--border);
 }
+
+/* Entity Highlight Styles */
+.entity-highlight {
+  border-bottom: 1px dashed;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.entity-highlight:hover {
+  background-color: var(--entity-highlight);
+}
+
+/* Character entity - blue */
+.entity-character {
+  border-color: rgb(59 130 246 / 0.5);
+}
+
+.entity-character:hover {
+  background-color: rgb(59 130 246 / 0.1);
+}
+
+.dark .entity-character:hover {
+  background-color: rgb(59 130 246 / 0.2);
+}
+
+/* Location entity - green */
+.entity-location {
+  border-color: rgb(34 197 94 / 0.5);
+}
+
+.entity-location:hover {
+  background-color: rgb(34 197 94 / 0.1);
+}
+
+.dark .entity-location:hover {
+  background-color: rgb(34 197 94 / 0.2);
+}
+
+/* Item entity - amber */
+.entity-item {
+  border-color: rgb(245 158 11 / 0.5);
+}
+
+.entity-item:hover {
+  background-color: rgb(245 158 11 / 0.1);
+}
+
+.dark .entity-item:hover {
+  background-color: rgb(245 158 11 / 0.2);
+}

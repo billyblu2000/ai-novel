@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { CalendarDays, MapPin, FileText } from "lucide-react";
-import { TiptapEditor } from "./tiptap-editor";
+import { EntityAwareEditor } from "./entity-aware-editor";
 import { EditorToolbar } from "./editor-toolbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Node, FileMetadata, NodeStatus } from "@/types";
 import { useNodes } from "@/lib/hooks";
+import { useEntities } from "@/lib/hooks/use-entities";
 import { useEditorStore } from "@/lib/stores";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ interface FileEditorProps {
 
 export function FileEditor({ node, projectId }: FileEditorProps) {
   const { updateNode, isUpdating } = useNodes(projectId);
+  const { entities } = useEntities(projectId);
   const { isDirty, setDirty, setSaving, setLastSavedAt } = useEditorStore();
 
   const [content, setContent] = useState(node.content || "");
@@ -36,6 +38,9 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
   const metadata = node.metadata as FileMetadata;
   const [status, setStatus] = useState<NodeStatus>(metadata?.status || "DRAFT");
   const [timestamp, setTimestamp] = useState(metadata?.timestamp || "");
+  const [ignoredEntities, setIgnoredEntities] = useState<string[]>(
+    metadata?.ignored_entities || []
+  );
 
   // Reset state when node changes
   useEffect(() => {
@@ -44,6 +49,7 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
     const meta = node.metadata as FileMetadata;
     setStatus(meta?.status || "DRAFT");
     setTimestamp(meta?.timestamp || "");
+    setIgnoredEntities(meta?.ignored_entities || []);
     setDirty(false);
   }, [node.id, node.content, node.summary, node.metadata, setDirty]);
 
@@ -76,6 +82,7 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
           status,
           timestamp: timestamp || null,
           word_count: wordCount,
+          ignored_entities: ignoredEntities,
         },
       });
       setDirty(false);
@@ -93,6 +100,7 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
     status,
     timestamp,
     metadata,
+    ignoredEntities,
     updateNode,
     calculateWordCount,
     setDirty,
@@ -110,13 +118,36 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
       metadata: {
         ...metadata,
         word_count: wordCount,
+        ignored_entities: ignoredEntities,
       },
     });
 
     setDirty(false);
     setLastSavedAt(new Date());
     setSaving(false);
-  }, [node.id, metadata, updateNode, calculateWordCount, setDirty, setSaving, setLastSavedAt]);
+  }, [node.id, metadata, ignoredEntities, updateNode, calculateWordCount, setDirty, setSaving, setLastSavedAt]);
+
+  const handleIgnoreEntity = useCallback((entityName: string) => {
+    if (!ignoredEntities.includes(entityName)) {
+      const newIgnored = [...ignoredEntities, entityName];
+      setIgnoredEntities(newIgnored);
+      // Save immediately
+      updateNode({
+        nodeId: node.id,
+        metadata: {
+          ...metadata,
+          ignored_entities: newIgnored,
+        },
+      });
+      toast.success(`已忽略「${entityName}」的高亮`);
+    }
+  }, [ignoredEntities, node.id, metadata, updateNode]);
+
+  const handleViewEntityDetails = useCallback(() => {
+    // This will be handled by opening the right sidebar
+    // For now, just show a toast
+    toast.info("请在右侧边栏查看实体详情");
+  }, []);
 
   const wordCount = calculateWordCount(content);
   const { lastSavedAt, isSaving } = useEditorStore();
@@ -212,8 +243,8 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
             </div>
           )}
 
-          {/* Editor */}
-          <TiptapEditor
+          {/* Editor with Entity Highlighting */}
+          <EntityAwareEditor
             content={content}
             placeholder="开始写作你的故事..."
             onUpdate={handleContentUpdate}
@@ -221,6 +252,10 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
             showWordCount
             autoFocus
             className="min-h-[400px]"
+            entities={entities}
+            ignoredEntities={ignoredEntities}
+            onIgnoreEntity={handleIgnoreEntity}
+            onViewEntityDetails={handleViewEntityDetails}
           />
 
           {/* Word Count Footer */}

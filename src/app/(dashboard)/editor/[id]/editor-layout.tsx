@@ -6,6 +6,7 @@ import { AppShell } from "@/components/layout";
 import { FileTree } from "@/components/binder";
 import { Dashboard } from "@/components/dashboard";
 import { NodeEditor } from "@/components/editor";
+import { EntitySidebar } from "@/components/entities";
 import { useEditorStore } from "@/lib/stores";
 import { useNodes } from "@/lib/hooks";
 import { Project, Profile } from "@/types";
@@ -57,9 +58,7 @@ export function EditorLayout({ project, user, profile }: EditorLayoutProps) {
             />
           }
           rightSidebarContent={
-            <div className="p-4 text-sm text-muted-foreground">
-              实体面板（待实现）
-            </div>
+            <EntitySidebar projectId={project.id} />
           }
         >
           {activeNode ? (
