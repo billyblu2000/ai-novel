@@ -3,7 +3,7 @@
 import { useUIStore } from "@/lib/stores";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { PanelLeft, PanelRight, ChevronLeft, Home } from "lucide-react";
+import { PanelLeft, PanelRight, ChevronLeft } from "lucide-react";
 import { ReactNode } from "react";
 import Link from "next/link";
 import { MobileNav } from "./mobile-nav";
@@ -20,7 +20,6 @@ interface HeaderProps {
   actions?: ReactNode;
   user?: User;
   profile?: { nickname: string; avatar_url: string | null } | null;
-  onBackToDashboard?: () => void;
 }
 
 export function Header({
@@ -33,7 +32,6 @@ export function Header({
   actions,
   user,
   profile,
-  onBackToDashboard,
 }: HeaderProps) {
   const {
     leftSidebarOpen,
@@ -72,18 +70,7 @@ export function Header({
               <span className="text-sm">返回</span>
             </Link>
             <span className="text-muted-foreground">/</span>
-            {onBackToDashboard ? (
-              <button
-                onClick={onBackToDashboard}
-                className="font-medium truncate max-w-[200px] hover:text-primary transition-colors flex items-center gap-1"
-                title="返回项目概览"
-              >
-                <Home className="h-4 w-4" />
-                {projectTitle}
-              </button>
-            ) : (
-              <span className="font-medium truncate max-w-[200px]">{projectTitle}</span>
-            )}
+            <span className="font-medium truncate max-w-[200px]">{projectTitle}</span>
           </>
         ) : (
           <>

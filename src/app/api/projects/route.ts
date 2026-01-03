@@ -9,6 +9,7 @@ import {
 } from "@/lib/api";
 import { generateKeyBetween } from "fractional-indexing";
 
+
 const createProjectSchema = z.object({
   title: z.string().min(1, "标题不能为空").max(100, "标题最多100个字符"),
 });
@@ -47,7 +48,6 @@ export async function POST(request: NextRequest) {
       return validationErrorResponse(parsed.error.issues[0]?.message || "参数验证失败");
     }
 
-    // Create project
     const { data: project, error } = await auth.supabase
       .from("projects")
       .insert({
@@ -59,39 +59,79 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
-    // Create default root folders: 正文 and 笔记
-    const rootFolders = [
-      {
-        project_id: project.id,
-        parent_id: null,
-        type: "FOLDER",
-        title: "正文",
-        content: "",
-        outline: "",
-        summary: "",
-        order: generateKeyBetween(null, null),
-        metadata: { collapsed: false, root_category: "MANUSCRIPT" },
-      },
-      {
-        project_id: project.id,
-        parent_id: null,
-        type: "FOLDER",
-        title: "笔记",
-        content: "",
-        outline: "",
-        summary: "",
-        order: generateKeyBetween(generateKeyBetween(null, null), null),
-        metadata: { collapsed: false, root_category: "NOTES" },
-      },
-    ];
+    // Create system root folders and an initial structure
+    try {
+      const rootOrder1 = generateKeyBetween(null, null);
+      const rootOrder2 = generateKeyBetween(rootOrder1, null);
 
-    const { error: nodesError } = await auth.supabase
-      .from("nodes")
-      .insert(rootFolders);
+      const { data: roots, error: rootError } = await auth.supabase
+        .from("nodes")
+        .insert([
+          {
+            project_id: project.id,
+            parent_id: null,
+            type: "FOLDER",
+            title: "正文",
+            content: "",
+            outline: "",
+            summary: "",
+            order: rootOrder1,
+            metadata: { collapsed: false, system_root: true, root_kind: "MANUSCRIPT" },
+          },
+          {
+            project_id: project.id,
+            parent_id: null,
+            type: "FOLDER",
+            title: "笔记",
+            content: "",
+            outline: "",
+            summary: "",
+            order: rootOrder2,
+            metadata: { collapsed: false, system_root: true, root_kind: "NOTES" },
+          },
+        ])
+        .select();
 
-    if (nodesError) {
-      console.error("创建默认文件夹失败:", nodesError);
-      // Don't fail the whole request, project is still created
+      if (rootError) throw rootError;
+
+      const manuscriptRoot = roots?.find((n) => (n.metadata as any)?.root_kind === "MANUSCRIPT");
+
+      // Create a starter chapter + scene under 正文 (optional but improves first-run UX)
+      if (manuscriptRoot) {
+        const chapterOrder = generateKeyBetween(null, null);
+        const { data: chapter, error: chapterError } = await auth.supabase
+          .from("nodes")
+          .insert({
+            project_id: project.id,
+            parent_id: manuscriptRoot.id,
+            type: "FOLDER",
+            title: "第一章",
+            content: "",
+            outline: "",
+            summary: "",
+            order: chapterOrder,
+            metadata: { collapsed: false },
+          })
+          .select()
+          .single();
+
+        if (chapterError) throw chapterError;
+
+        await auth.supabase.from("nodes").insert({
+          project_id: project.id,
+          parent_id: chapter.id,
+          type: "FILE",
+          title: "场景 1",
+          content: "",
+          outline: "",
+          summary: "",
+          order: generateKeyBetween(null, null),
+          metadata: { status: "DRAFT", word_count: 0, ignored_entities: [] },
+        });
+      }
+    } catch (e) {
+      // If init fails, still return the project; the editor GET will attempt to self-heal.
+      console.error("初始化项目目录失败:", e);
     }
 
     return successResponse(project, 201);

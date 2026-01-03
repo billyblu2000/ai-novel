@@ -1,15 +1,14 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { FileText, FolderOpen, ChevronRight, Plus } from "lucide-react";
 import { TiptapEditor } from "./tiptap-editor";
 import { EditorToolbar } from "./editor-toolbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Node, FileMetadata } from "@/types";
-import { useNodes } from "@/lib/hooks";
-
+import { Node, FolderMetadata, FileMetadata } from "@/types";
+import { useNodes, buildTree, TreeNode } from "@/lib/hooks";
 import { useEditorStore } from "@/lib/stores";
 import { cn } from "@/lib/utils";
 
@@ -17,10 +16,9 @@ interface FolderEditorProps {
   node: Node;
   projectId: string;
   onNodeSelect?: (node: Node) => void;
-  isNotesMode?: boolean;
 }
 
-export function FolderEditor({ node, projectId, onNodeSelect, isNotesMode = false }: FolderEditorProps) {
+export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProps) {
   const { nodes, updateNode, createNode, isUpdating, isCreating } = useNodes(projectId);
   const { isDirty, setDirty, setSaving, setLastSavedAt, isSaving, lastSavedAt } = useEditorStore();
 
@@ -36,6 +34,17 @@ export function FolderEditor({ node, projectId, onNodeSelect, isNotesMode = fals
   const children = nodes
     .filter((n) => n.parent_id === node.id)
     .sort((a, b) => a.order.localeCompare(b.order));
+
+  // Notes mode: any node under root_kind=NOTES should be a simplified directory + text editor experience
+  const isNotesMode = useMemo(() => {
+    const byId = new Map(nodes.map((n) => [n.id, n] as const));
+    let current: Node | undefined = node;
+    while (current && current.parent_id) {
+      current = byId.get(current.parent_id);
+    }
+    const rootMeta = (current?.metadata || {}) as { system_root?: boolean; root_kind?: string };
+    return !!rootMeta.system_root && rootMeta.root_kind === "NOTES";
+  }, [node.id, nodes]);
 
   const handleOutlineUpdate = useCallback((newOutline: string) => {
     setOutline(newOutline);
@@ -81,11 +90,10 @@ export function FolderEditor({ node, projectId, onNodeSelect, isNotesMode = fals
             ? "新文件夹"
             : "新章节"
           : isNotesMode
-            ? "新笔记"
+            ? "新文档"
             : "新场景",
     });
   }, [projectId, node.id, createNode, isNotesMode]);
-
 
   const handleChildClick = useCallback((child: Node) => {
     onNodeSelect?.(child);
@@ -148,7 +156,7 @@ export function FolderEditor({ node, projectId, onNodeSelect, isNotesMode = fals
             <h1 className="text-2xl font-semibold">{node.title}</h1>
           </div>
 
-          {/* Outline Section - only show in manuscript mode */}
+          {/* Outline Section (manuscript only) */}
           {!isNotesMode && (
             <div className="mb-8">
               <h2 className="text-lg font-medium mb-3 flex items-center gap-2">
@@ -186,7 +194,7 @@ export function FolderEditor({ node, projectId, onNodeSelect, isNotesMode = fals
                   disabled={isCreating}
                 >
                   <Plus className="h-4 w-4 mr-1" />
-                  {isNotesMode ? "新建笔记" : "新建场景"}
+                  {isNotesMode ? "新建文档" : "新建场景"}
                 </Button>
               </div>
             </div>
@@ -195,9 +203,7 @@ export function FolderEditor({ node, projectId, onNodeSelect, isNotesMode = fals
               <div className="text-center py-12 text-muted-foreground border rounded-lg border-dashed">
                 <FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
                 <p>暂无子内容</p>
-                <p className="text-sm mt-1">
-                  点击上方按钮创建新的{isNotesMode ? "文件夹或笔记" : "章节或场景"}
-                </p>
+                <p className="text-sm mt-1">点击上方按钮创建新的章节或场景</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -213,13 +219,11 @@ export function FolderEditor({ node, projectId, onNodeSelect, isNotesMode = fals
                       className={cn(
                         "cursor-pointer transition-colors hover:bg-muted/50",
                         "border-l-4",
-                        isNotesMode
-                          ? "border-l-purple-500"
-                          : isFile
-                            ? fileStats.status === "FINAL"
-                              ? "border-l-green-500"
-                              : "border-l-yellow-500"
-                            : "border-l-blue-500"
+                        isFile
+                          ? fileStats.status === "FINAL"
+                            ? "border-l-green-500"
+                            : "border-l-yellow-500"
+                          : "border-l-blue-500"
                       )}
                       onClick={() => handleChildClick(child)}
                     >
@@ -244,11 +248,11 @@ export function FolderEditor({ node, projectId, onNodeSelect, isNotesMode = fals
                             {fileStats.wordCount} 字
                             {!isFile && folderStats.childCount !== undefined && (
                               <span className="ml-2">
-                                · {folderStats.childCount} 个{isNotesMode ? "笔记" : "场景"}
+                                · {folderStats.childCount} 个场景
                               </span>
                             )}
                           </span>
-                          {!isNotesMode && isFile && (
+                          {isFile && !isNotesMode && (
                             <span
                               className={cn(
                                 "px-2 py-0.5 rounded text-xs",

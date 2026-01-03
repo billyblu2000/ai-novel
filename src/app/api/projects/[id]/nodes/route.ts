@@ -59,6 +59,101 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return internalErrorResponse("获取节点失败");
     }
 
+    // Ensure system root folders exist (正文 / 笔记). If missing, create and migrate old root nodes.
+    const systemRoots = (nodes || []).filter((n) => {
+      const meta = (n.metadata || {}) as { system_root?: boolean; root_kind?: string };
+      return n.type === "FOLDER" && !n.parent_id && meta.system_root;
+    });
+
+    const manuscriptRoot = systemRoots.find((n) => {
+      const meta = (n.metadata || {}) as { root_kind?: string };
+      return meta.root_kind === "MANUSCRIPT";
+    });
+    const notesRoot = systemRoots.find((n) => {
+      const meta = (n.metadata || {}) as { root_kind?: string };
+      return meta.root_kind === "NOTES";
+    });
+
+    if (!manuscriptRoot || !notesRoot) {
+      // Create roots
+      const rootOrder1 = generateKeyBetween(null, null);
+      const rootOrder2 = generateKeyBetween(rootOrder1, null);
+
+      const { data: createdRoots, error: createRootsError } = await supabase
+        .from("nodes")
+        .insert([
+          {
+            project_id: projectId,
+            parent_id: null,
+            type: "FOLDER",
+            title: "正文",
+            content: "",
+            outline: "",
+            summary: "",
+            order: rootOrder1,
+            metadata: { collapsed: false, system_root: true, root_kind: "MANUSCRIPT" },
+          },
+          {
+            project_id: projectId,
+            parent_id: null,
+            type: "FOLDER",
+            title: "笔记",
+            content: "",
+            outline: "",
+            summary: "",
+            order: rootOrder2,
+            metadata: { collapsed: false, system_root: true, root_kind: "NOTES" },
+          },
+        ])
+        .select();
+
+      if (createRootsError) {
+        console.error("Failed to create system roots:", createRootsError);
+        return internalErrorResponse("初始化目录失败");
+      }
+
+      const newManuscriptRoot = createdRoots?.find((n) => {
+        const meta = (n.metadata || {}) as { root_kind?: string };
+        return meta.root_kind === "MANUSCRIPT";
+      });
+
+      // Migrate existing old root nodes (excluding the created roots) into 正文
+      if (newManuscriptRoot) {
+        const oldRootNodes = (nodes || []).filter(
+          (n) => !n.parent_id && !(n.metadata as any)?.system_root
+        );
+
+        // Re-assign orders under the new parent to keep relative order stable
+        const sortedOldRoots = [...oldRootNodes].sort((a, b) =>
+          a.order.localeCompare(b.order)
+        );
+
+        let prevOrder: string | null = null;
+        for (const n of sortedOldRoots) {
+          const newOrder = generateKeyBetween(prevOrder, null);
+          prevOrder = newOrder;
+          await supabase
+            .from("nodes")
+            .update({ parent_id: newManuscriptRoot.id, order: newOrder })
+            .eq("id", n.id);
+        }
+      }
+
+      // Re-fetch after init/migration
+      const { data: nodesAfter, error: refetchError } = await supabase
+        .from("nodes")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("order", { ascending: true });
+
+      if (refetchError) {
+        console.error("Failed to refetch nodes:", refetchError);
+        return internalErrorResponse("获取节点失败");
+      }
+
+      return successResponse(nodesAfter);
+    }
+
     return successResponse(nodes);
   } catch (error) {
     console.error("GET /api/projects/[id]/nodes error:", error);
@@ -97,12 +192,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const { parent_id, type, title, content, outline, summary, metadata } = result.data;
     let { order } = result.data;
-
-    // Disallow creating nodes at top-level (only system root folders are top-level)
-    if (parent_id === null) {
-      return validationErrorResponse("不能在顶层创建节点");
-    }
-
 
     // If order is not provided, generate one
     if (!order) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useCallback, useMemo } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import { AppShell } from "@/components/layout";
 import { FileTree } from "@/components/binder";
@@ -10,9 +10,10 @@ import { NodeEditor } from "@/components/editor";
 import { EntitySidebar } from "@/components/entities";
 import { useEditorStore } from "@/lib/stores";
 import { useNodes } from "@/lib/hooks";
-import { Project, FolderMetadata, Node } from "@/types";
+import { Project } from "@/types";
 import { Header } from "@/components/layout/header";
-
+import { Node } from "@/types";
+import { Button } from "@/components/ui/button";
 
 interface EditorLayoutProps {
   project: Project;
@@ -22,43 +23,43 @@ interface EditorLayoutProps {
 
 export function EditorLayout({ project, user, profile }: EditorLayoutProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+
   const { activeNodeId, setActiveProject, setActiveNode } = useEditorStore();
   const { nodes } = useNodes(project.id);
 
-  // Get node ID from URL on mount
-  const urlNodeId = searchParams.get("node");
-
-  // Set active project on mount and restore node from URL
+  // Set active project on mount
   useEffect(() => {
     setActiveProject(project.id);
-    
-    // Restore node from URL if present and valid
-    if (urlNodeId && nodes.length > 0) {
-      const nodeExists = nodes.some((n) => n.id === urlNodeId);
-      if (nodeExists && activeNodeId !== urlNodeId) {
-        setActiveNode(urlNodeId);
-      }
-    }
-    
     return () => {
       setActiveProject(null);
       setActiveNode(null);
     };
-  }, [project.id, setActiveProject, setActiveNode, urlNodeId, nodes, activeNodeId]);
+  }, [project.id, setActiveProject, setActiveNode]);
 
-  // Sync activeNodeId to URL
+  // Restore selected node from URL on refresh
   useEffect(() => {
-    const currentUrlNodeId = searchParams.get("node");
-    
-    if (activeNodeId && activeNodeId !== currentUrlNodeId) {
-      // Update URL with new node ID
-      router.replace(`/editor/${project.id}?node=${activeNodeId}`, { scroll: false });
-    } else if (!activeNodeId && currentUrlNodeId) {
-      // Remove node from URL when deselected
-      router.replace(`/editor/${project.id}`, { scroll: false });
+    const nodeIdFromUrl = searchParams.get("node");
+    if (!nodeIdFromUrl) return;
+    if (!nodes.length) return;
+
+    const exists = nodes.some((n) => n.id === nodeIdFromUrl);
+    if (exists) {
+      setActiveNode(nodeIdFromUrl);
     }
-  }, [activeNodeId, project.id, router, searchParams]);
+  }, [searchParams, nodes, setActiveNode]);
+
+  const setNodeInUrl = useCallback(
+    (nodeId: string | null) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (nodeId) params.set("node", nodeId);
+      else params.delete("node");
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [router, pathname, searchParams]
+  );
 
   // Find the active node
   const activeNode = useMemo(() => {
@@ -66,29 +67,18 @@ export function EditorLayout({ project, user, profile }: EditorLayoutProps) {
     return nodes.find((n) => n.id === activeNodeId) || null;
   }, [activeNodeId, nodes]);
 
-  // Determine if active node is under "笔记" (notes) root folder
-  const isNotesMode = useMemo(() => {
-    if (!activeNode) return false;
-    
-    // Find the root folder of the active node
-    let currentNode: Node | undefined = activeNode;
-    while (currentNode?.parent_id) {
-      currentNode = nodes.find((n) => n.id === currentNode!.parent_id);
-    }
-    
-    if (!currentNode) return false;
-    
-    const metadata = currentNode.metadata as FolderMetadata;
-    return metadata?.root_category === "NOTES";
-  }, [activeNode, nodes]);
+  const handleNodeSelect = useCallback(
+    (node: Node) => {
+      setActiveNode(node.id);
+      setNodeInUrl(node.id);
+    },
+    [setActiveNode, setNodeInUrl]
+  );
 
-  const handleNodeSelect = useCallback((node: Node) => {
-    setActiveNode(node.id);
-  }, [setActiveNode]);
-
-  const handleBackToDashboard = useCallback(() => {
+  const handleGoOverview = useCallback(() => {
     setActiveNode(null);
-  }, [setActiveNode]);
+    setNodeInUrl(null);
+  }, [setActiveNode, setNodeInUrl]);
 
   return (
     <div className="flex flex-col h-screen">
@@ -96,26 +86,24 @@ export function EditorLayout({ project, user, profile }: EditorLayoutProps) {
         projectTitle={project.title}
         user={user}
         profile={profile}
-        onBackToDashboard={activeNode ? handleBackToDashboard : undefined}
+        actions={
+          <Button variant="ghost" size="sm" onClick={handleGoOverview}>
+            项目概览
+          </Button>
+        }
       />
       <div className="flex-1 overflow-hidden">
         <AppShell
           leftSidebarContent={
-            <FileTree
-              projectId={project.id}
-              onNodeSelect={handleNodeSelect}
-            />
+            <FileTree projectId={project.id} onNodeSelect={handleNodeSelect} />
           }
-          rightSidebarContent={
-            <EntitySidebar projectId={project.id} />
-          }
+          rightSidebarContent={<EntitySidebar projectId={project.id} />}
         >
           {activeNode ? (
             <NodeEditor
               node={activeNode}
               projectId={project.id}
               onNodeSelect={handleNodeSelect}
-              isNotesMode={isNotesMode}
             />
           ) : (
             <Dashboard projectId={project.id} projectTitle={project.title} />

@@ -5,8 +5,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { TreeNode } from "@/lib/hooks";
-import { NodeType, RootFolderCategory } from "@/types";
-
+import { NodeType } from "@/types";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -25,6 +24,8 @@ import {
   FolderPlus,
   Pencil,
   Trash2,
+  NotebookPen,
+  BookOpen,
 } from "lucide-react";
 
 interface TreeNodeItemProps {
@@ -32,8 +33,12 @@ interface TreeNodeItemProps {
   isSelected: boolean;
   isExpanded: boolean;
   isEditing: boolean;
-  isRoot: boolean;
-  rootCategory: RootFolderCategory | null;
+  disableDrag?: boolean;
+  disableRename?: boolean;
+  disableDelete?: boolean;
+  disableCreate?: boolean;
+  createFileLabel?: string;
+  createFolderLabel?: string;
   onSelect: () => void;
   onToggleExpand: () => void;
   onStartEdit: () => void;
@@ -42,14 +47,17 @@ interface TreeNodeItemProps {
   onCreate: (type: NodeType) => void;
 }
 
-
 export function TreeNodeItem({
   node,
   isSelected,
   isExpanded,
   isEditing,
-  isRoot,
-  rootCategory,
+  disableDrag = false,
+  disableRename = false,
+  disableDelete = false,
+  disableCreate = false,
+  createFileLabel = "新建场景",
+  createFolderLabel = "新建文件夹",
   onSelect,
   onToggleExpand,
   onStartEdit,
@@ -57,7 +65,6 @@ export function TreeNodeItem({
   onDelete,
   onCreate,
 }: TreeNodeItemProps) {
-
   const [editValue, setEditValue] = useState(node.title);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -68,8 +75,7 @@ export function TreeNodeItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: node.id, disabled: isRoot });
-
+  } = useSortable({ id: node.id, disabled: disableDrag });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -122,6 +128,10 @@ export function TreeNodeItem({
   const isFolder = node.type === "FOLDER";
   const hasChildren = node.children.length > 0;
 
+  const meta = (node.metadata || {}) as { system_root?: boolean; root_kind?: string };
+  const isSystemRoot = node.depth === 0 && !!meta.system_root;
+  const rootKind = meta.root_kind;
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -144,28 +154,29 @@ export function TreeNodeItem({
 
           {/* Expand/Collapse chevron for folders */}
           {isFolder ? (
-            hasChildren || isRoot ? (
-              <button
-                onClick={handleChevronClick}
-                className="p-0.5 hover:bg-accent rounded"
-              >
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                )}
-              </button>
-            ) : (
-              <div className="w-5" />
-            )
+            <button
+              onClick={handleChevronClick}
+              className="p-0.5 hover:bg-accent rounded"
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
           ) : (
             <div className="w-5" /> // Spacer for files
           )}
 
-
           {/* Icon */}
           {isFolder ? (
-            isExpanded ? (
+            isSystemRoot ? (
+              rootKind === "NOTES" ? (
+                <NotebookPen className="h-4 w-4 text-purple-500 shrink-0" />
+              ) : (
+                <BookOpen className="h-4 w-4 text-emerald-500 shrink-0" />
+              )
+            ) : isExpanded ? (
               <FolderOpen className="h-4 w-4 text-yellow-500 shrink-0" />
             ) : (
               <Folder className="h-4 w-4 text-yellow-500 shrink-0" />
@@ -192,40 +203,42 @@ export function TreeNodeItem({
       </ContextMenuTrigger>
 
       <ContextMenuContent>
-        {isFolder && (
+        {isFolder && !disableCreate && (
           <>
             <ContextMenuItem onClick={() => onCreate("FILE")}>
               <FilePlus className="h-4 w-4 mr-2" />
-              {rootCategory === "NOTES" ? "新建笔记" : "新建场景"}
+              {createFileLabel}
             </ContextMenuItem>
             <ContextMenuItem onClick={() => onCreate("FOLDER")}>
               <FolderPlus className="h-4 w-4 mr-2" />
-              {rootCategory === "NOTES" ? "新建文件夹" : "新建章节"}
+              {createFolderLabel}
             </ContextMenuItem>
-            {!isRoot && <ContextMenuSeparator />}
+            {(!disableRename || !disableDelete) && <ContextMenuSeparator />}
           </>
         )}
 
-        {!isRoot && (
+        {!disableRename && (
           <>
             <ContextMenuItem onClick={onStartEdit}>
               <Pencil className="h-4 w-4 mr-2" />
               重命名
               <span className="ml-auto text-xs text-muted-foreground">F2</span>
             </ContextMenuItem>
-            <ContextMenuSeparator />
-            <ContextMenuItem
-              onClick={onDelete}
-              className="text-destructive focus:text-destructive"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              删除
-              <span className="ml-auto text-xs text-muted-foreground">Delete</span>
-            </ContextMenuItem>
+            {!disableDelete && <ContextMenuSeparator />}
           </>
         )}
-      </ContextMenuContent>
 
+        {!disableDelete && (
+          <ContextMenuItem
+            onClick={onDelete}
+            className="text-destructive focus:text-destructive"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            删除
+            <span className="ml-auto text-xs text-muted-foreground">Delete</span>
+          </ContextMenuItem>
+        )}
+      </ContextMenuContent>
     </ContextMenu>
   );
 }

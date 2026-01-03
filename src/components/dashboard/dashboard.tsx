@@ -72,24 +72,47 @@ export function Dashboard({ projectId, projectTitle }: DashboardProps) {
       .slice(0, 5);
   }, [nodes]);
 
-  // Get writing progress by chapter
+  // Get writing progress by chapter (only under 正文)
   const chapterProgress = useMemo(() => {
-    const rootFolders = nodes.filter((n) => n.type === "FOLDER" && !n.parent_id);
-    
-    return rootFolders.map((folder) => {
-      const children = nodes.filter((n) => n.parent_id === folder.id && n.type === "FILE");
-      const completed = children.filter((n) => {
+    const manuscriptRoot = nodes.find((n) => {
+      const meta = (n.metadata || {}) as { system_root?: boolean; root_kind?: string };
+      return n.type === "FOLDER" && !n.parent_id && meta.system_root && meta.root_kind === "MANUSCRIPT";
+    });
+
+    if (!manuscriptRoot) return [];
+
+    const chapters = nodes
+      .filter((n) => n.type === "FOLDER" && n.parent_id === manuscriptRoot.id)
+      .sort((a, b) => a.order.localeCompare(b.order));
+
+    const getDescendantFiles = (parentId: string) => {
+      const result: Node[] = [];
+      const queue = [parentId];
+      while (queue.length > 0) {
+        const current = queue.shift()!;
+        const children = nodes.filter((n) => n.parent_id === current);
+        children.forEach((child) => {
+          if (child.type === "FILE") result.push(child);
+          else queue.push(child.id);
+        });
+      }
+      return result;
+    };
+
+    return chapters.map((chapter) => {
+      const files = getDescendantFiles(chapter.id);
+      const completed = files.filter((n) => {
         const metadata = n.metadata as FileMetadata;
         return metadata.status === "FINAL";
       }).length;
-      
+
       return {
-        id: folder.id,
-        title: folder.title,
-        total: children.length,
+        id: chapter.id,
+        title: chapter.title,
+        total: files.length,
         completed,
       };
-    }).sort((a, b) => a.title.localeCompare(b.title));
+    });
   }, [nodes]);
 
   if (isLoading) {

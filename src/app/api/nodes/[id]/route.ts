@@ -105,58 +105,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return notFoundResponse("节点不存在");
     }
 
-    // Load existing node to protect system root folders
-    const { data: existingNode, error: existingNodeError } = await supabase
-      .from("nodes")
-      .select("id, type, parent_id, metadata")
-      .eq("id", nodeId)
-      .single();
-
-    if (existingNodeError || !existingNode) {
-      console.error("Failed to fetch existing node:", existingNodeError);
-      return internalErrorResponse("获取节点失败");
-    }
-
     // Parse and validate request body
     const body = await request.json();
     const result = updateNodeSchema.safeParse(body);
 
-
     if (!result.success) {
       return validationErrorResponse(result.error.issues[0].message);
-    }
-
-    const isRootFolder =
-      existingNode.type === "FOLDER" &&
-      existingNode.parent_id === null &&
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      !!((existingNode.metadata as any)?.root_category);
-
-    if (isRootFolder) {
-      // Root folders are system-defined: allow only collapsed toggle via metadata.
-      const { title, content, outline, summary, order, metadata } = result.data;
-      if (title !== undefined || content !== undefined || outline !== undefined || summary !== undefined || order !== undefined) {
-        return validationErrorResponse("根目录不可编辑");
-      }
-
-      // Preserve root_category even if client tries to override
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const existingMeta = (existingNode.metadata as any) || {};
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const nextMeta = (metadata as any) || {};
-
-      result.data.metadata = {
-        ...existingMeta,
-        ...nextMeta,
-        root_category: existingMeta.root_category,
-      };
     }
 
     const updateData = {
       ...result.data,
       updated_at: new Date().toISOString(),
     };
-
 
     // Update the node
     const { data, error } = await supabase
@@ -204,34 +164,11 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       return notFoundResponse("节点不存在");
     }
 
-    // Protect system root folders
-    const { data: existingNode, error: existingNodeError } = await supabase
-      .from("nodes")
-      .select("id, type, parent_id, metadata")
-      .eq("id", nodeId)
-      .single();
-
-    if (existingNodeError || !existingNode) {
-      console.error("Failed to fetch existing node:", existingNodeError);
-      return internalErrorResponse("获取节点失败");
-    }
-
-    const isRootFolder =
-      existingNode.type === "FOLDER" &&
-      existingNode.parent_id === null &&
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      !!((existingNode.metadata as any)?.root_category);
-
-    if (isRootFolder) {
-      return validationErrorResponse("根目录不能删除");
-    }
-
     // Delete the node (children will be cascade deleted via DB constraint)
     const { error } = await supabase
       .from("nodes")
       .delete()
       .eq("id", nodeId);
-
 
     if (error) {
       console.error("Failed to delete node:", error);
