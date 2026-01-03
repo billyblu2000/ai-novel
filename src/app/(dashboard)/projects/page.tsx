@@ -1,9 +1,14 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { UserMenu } from "@/components/auth";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import { PenLine } from "lucide-react";
+import Link from "next/link";
+import {
+  ProjectGrid,
+  CreateProjectDialog,
+  EmptyState,
+} from "@/components/projects";
+import { Project } from "@/lib/db/schema";
 
 export default async function ProjectsPage() {
   const supabase = await createClient();
@@ -16,11 +21,21 @@ export default async function ProjectsPage() {
     redirect("/login");
   }
 
+  // 获取用户信息
   const { data: profile } = await supabase
     .from("profiles")
     .select("nickname, avatar_url")
     .eq("id", user.id)
     .single();
+
+  // 获取项目列表
+  const { data: projects } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("updated_at", { ascending: false });
+
+  const projectList = (projects || []) as Project[];
 
   return (
     <div className="min-h-screen bg-background">
@@ -44,20 +59,15 @@ export default async function ProjectsPage() {
               管理你的小说创作项目
             </p>
           </div>
-          <Button disabled>
-            新建项目
-          </Button>
+          {projectList.length > 0 && <CreateProjectDialog />}
         </div>
 
-        {/* Empty State */}
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
-          <PenLine className="mb-4 h-12 w-12 text-muted-foreground" />
-          <h3 className="mb-2 text-lg font-medium">还没有项目</h3>
-          <p className="mb-4 text-sm text-muted-foreground">
-            创建你的第一个小说项目，开始 AI 辅助创作之旅
-          </p>
-          <Button disabled>创建第一个项目</Button>
-        </div>
+        {/* 项目列表或空状态 */}
+        {projectList.length > 0 ? (
+          <ProjectGrid projects={projectList} />
+        ) : (
+          <EmptyState />
+        )}
       </main>
     </div>
   );
