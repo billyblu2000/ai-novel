@@ -3,27 +3,35 @@
 import { useUIStore } from "@/lib/stores";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { PanelLeft, PanelRight } from "lucide-react";
+import { PanelLeft, PanelRight, ChevronLeft } from "lucide-react";
 import { ReactNode } from "react";
 import Link from "next/link";
 import { MobileNav } from "./mobile-nav";
+import { UserMenu } from "@/components/auth";
+import { User } from "@supabase/supabase-js";
 
 interface HeaderProps {
   title?: string;
+  projectTitle?: string;
   showLeftToggle?: boolean;
   showRightToggle?: boolean;
   leftSidebarContent?: ReactNode;
   rightSidebarContent?: ReactNode;
   actions?: ReactNode;
+  user?: User;
+  profile?: { nickname: string; avatar_url: string | null } | null;
 }
 
 export function Header({
   title,
+  projectTitle,
   showLeftToggle = true,
   showRightToggle = true,
   leftSidebarContent,
   rightSidebarContent,
   actions,
+  user,
+  profile,
 }: HeaderProps) {
   const {
     leftSidebarOpen,
@@ -55,13 +63,26 @@ export function Header({
 
       {/* Logo / 标题 */}
       <div className="flex items-center gap-2">
-        <Link href="/" className="flex items-center gap-2 font-semibold">
-          <span className="text-lg">AI Novel Studio</span>
-        </Link>
-        {title && (
+        {projectTitle ? (
           <>
+            <Link href="/projects" className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              <ChevronLeft className="h-4 w-4" />
+              <span className="text-sm">返回</span>
+            </Link>
             <span className="text-muted-foreground">/</span>
-            <span className="text-muted-foreground">{title}</span>
+            <span className="font-medium truncate max-w-[200px]">{projectTitle}</span>
+          </>
+        ) : (
+          <>
+            <Link href="/" className="flex items-center gap-2 font-semibold">
+              <span className="text-lg">AI Novel Studio</span>
+            </Link>
+            {title && (
+              <>
+                <span className="text-muted-foreground">/</span>
+                <span className="text-muted-foreground">{title}</span>
+              </>
+            )}
           </>
         )}
       </div>
@@ -82,6 +103,9 @@ export function Header({
             <span className="sr-only">切换右侧边栏</span>
           </Button>
         )}
+
+        {/* 用户菜单 */}
+        {user && <UserMenu user={user} profile={profile} />}
       </div>
     </header>
   );
