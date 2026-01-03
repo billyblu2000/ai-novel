@@ -99,6 +99,8 @@ export function EntityAwareEditor({
   );
 
   const editor = useEditor({
+    // Next.js App Router will SSR client components; disable immediate render to avoid hydration mismatch.
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: {
