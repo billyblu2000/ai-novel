@@ -8,11 +8,12 @@ interface NodeEditorProps {
   node: Node;
   projectId: string;
   onNodeSelect?: (node: Node) => void;
+  isNotesMode?: boolean;
 }
 
-export function NodeEditor({ node, projectId, onNodeSelect }: NodeEditorProps) {
+export function NodeEditor({ node, projectId, onNodeSelect, isNotesMode = false }: NodeEditorProps) {
   if (node.type === "FILE") {
-    return <FileEditor node={node} projectId={projectId} />;
+    return <FileEditor node={node} projectId={projectId} isNotesMode={isNotesMode} />;
   }
 
   return (
@@ -20,6 +21,7 @@ export function NodeEditor({ node, projectId, onNodeSelect }: NodeEditorProps) {
       node={node}
       projectId={projectId}
       onNodeSelect={onNodeSelect}
+      isNotesMode={isNotesMode}
     />
   );
 }

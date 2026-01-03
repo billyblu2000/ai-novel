@@ -7,8 +7,9 @@ import { TiptapEditor } from "./tiptap-editor";
 import { EditorToolbar } from "./editor-toolbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Node, FolderMetadata, FileMetadata } from "@/types";
-import { useNodes, buildTree, TreeNode } from "@/lib/hooks";
+import { Node, FileMetadata } from "@/types";
+import { useNodes } from "@/lib/hooks";
+
 import { useEditorStore } from "@/lib/stores";
 import { cn } from "@/lib/utils";
 
@@ -16,9 +17,10 @@ interface FolderEditorProps {
   node: Node;
   projectId: string;
   onNodeSelect?: (node: Node) => void;
+  isNotesMode?: boolean;
 }
 
-export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProps) {
+export function FolderEditor({ node, projectId, onNodeSelect, isNotesMode = false }: FolderEditorProps) {
   const { nodes, updateNode, createNode, isUpdating, isCreating } = useNodes(projectId);
   const { isDirty, setDirty, setSaving, setLastSavedAt, isSaving, lastSavedAt } = useEditorStore();
 
@@ -73,9 +75,17 @@ export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProp
       projectId,
       parentId: node.id,
       type,
-      title: type === "FOLDER" ? "新章节" : "新场景",
+      title:
+        type === "FOLDER"
+          ? isNotesMode
+            ? "新文件夹"
+            : "新章节"
+          : isNotesMode
+            ? "新笔记"
+            : "新场景",
     });
-  }, [projectId, node.id, createNode]);
+  }, [projectId, node.id, createNode, isNotesMode]);
+
 
   const handleChildClick = useCallback((child: Node) => {
     onNodeSelect?.(child);
@@ -138,20 +148,22 @@ export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProp
             <h1 className="text-2xl font-semibold">{node.title}</h1>
           </div>
 
-          {/* Outline Section */}
-          <div className="mb-8">
-            <h2 className="text-lg font-medium mb-3 flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              章节大纲
-            </h2>
-            <TiptapEditor
-              content={outline}
-              placeholder="在这里编写章节大纲和写作计划..."
-              onUpdate={handleOutlineUpdate}
-              onSave={handleAutoSave}
-              className="min-h-[200px] p-4 rounded-lg border bg-muted/30"
-            />
-          </div>
+          {/* Outline Section - only show in manuscript mode */}
+          {!isNotesMode && (
+            <div className="mb-8">
+              <h2 className="text-lg font-medium mb-3 flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                章节大纲
+              </h2>
+              <TiptapEditor
+                content={outline}
+                placeholder="在这里编写章节大纲和写作计划..."
+                onUpdate={handleOutlineUpdate}
+                onSave={handleAutoSave}
+                className="min-h-[200px] p-4 rounded-lg border bg-muted/30"
+              />
+            </div>
+          )}
 
           {/* Children Section */}
           <div>
@@ -165,7 +177,7 @@ export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProp
                   disabled={isCreating}
                 >
                   <Plus className="h-4 w-4 mr-1" />
-                  新建章节
+                  {isNotesMode ? "新建文件夹" : "新建章节"}
                 </Button>
                 <Button
                   variant="outline"
@@ -174,7 +186,7 @@ export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProp
                   disabled={isCreating}
                 >
                   <Plus className="h-4 w-4 mr-1" />
-                  新建场景
+                  {isNotesMode ? "新建笔记" : "新建场景"}
                 </Button>
               </div>
             </div>
@@ -183,7 +195,9 @@ export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProp
               <div className="text-center py-12 text-muted-foreground border rounded-lg border-dashed">
                 <FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
                 <p>暂无子内容</p>
-                <p className="text-sm mt-1">点击上方按钮创建新的章节或场景</p>
+                <p className="text-sm mt-1">
+                  点击上方按钮创建新的{isNotesMode ? "文件夹或笔记" : "章节或场景"}
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -199,11 +213,13 @@ export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProp
                       className={cn(
                         "cursor-pointer transition-colors hover:bg-muted/50",
                         "border-l-4",
-                        isFile
-                          ? fileStats.status === "FINAL"
-                            ? "border-l-green-500"
-                            : "border-l-yellow-500"
-                          : "border-l-blue-500"
+                        isNotesMode
+                          ? "border-l-purple-500"
+                          : isFile
+                            ? fileStats.status === "FINAL"
+                              ? "border-l-green-500"
+                              : "border-l-yellow-500"
+                            : "border-l-blue-500"
                       )}
                       onClick={() => handleChildClick(child)}
                     >
@@ -216,7 +232,7 @@ export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProp
                           )}
                           <div>
                             <p className="font-medium">{child.title}</p>
-                            {child.summary && (
+                            {!isNotesMode && child.summary && (
                               <p className="text-sm text-muted-foreground line-clamp-1">
                                 {child.summary}
                               </p>
@@ -228,11 +244,11 @@ export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProp
                             {fileStats.wordCount} 字
                             {!isFile && folderStats.childCount !== undefined && (
                               <span className="ml-2">
-                                · {folderStats.childCount} 个场景
+                                · {folderStats.childCount} 个{isNotesMode ? "笔记" : "场景"}
                               </span>
                             )}
                           </span>
-                          {isFile && (
+                          {!isNotesMode && isFile && (
                             <span
                               className={cn(
                                 "px-2 py-0.5 rounded text-xs",

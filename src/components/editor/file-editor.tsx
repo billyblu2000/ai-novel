@@ -25,13 +25,15 @@ import { countEntityFrequencies } from "@/lib/entity-matcher";
 interface FileEditorProps {
   node: Node;
   projectId: string;
+  isNotesMode?: boolean;
 }
 
-export function FileEditor({ node, projectId }: FileEditorProps) {
+export function FileEditor({ node, projectId, isNotesMode = false }: FileEditorProps) {
   const { updateNode, isUpdating } = useNodes(projectId);
   const { entities } = useEntities(projectId);
   const { updateMentions } = useMentions(node.id);
-  const { isDirty, setDirty, setSaving, setLastSavedAt } = useEditorStore();
+  const { isDirty, setDirty, setSaving, setLastSavedAt, lastSavedAt, isSaving } = useEditorStore();
+
 
   const [content, setContent] = useState(node.content || "");
   const [summary, setSummary] = useState(node.summary || "");
@@ -40,9 +42,11 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
   const metadata = node.metadata as FileMetadata;
   const [status, setStatus] = useState<NodeStatus>(metadata?.status || "DRAFT");
   const [timestamp, setTimestamp] = useState(metadata?.timestamp || "");
+  const [locationRef, setLocationRef] = useState(metadata?.location_ref || "");
   const [ignoredEntities, setIgnoredEntities] = useState<string[]>(
     metadata?.ignored_entities || []
   );
+
 
   // Track last synced mentions to avoid unnecessary updates
   const lastMentionsSyncRef = useRef<string>("");
@@ -54,7 +58,9 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
     const meta = node.metadata as FileMetadata;
     setStatus(meta?.status || "DRAFT");
     setTimestamp(meta?.timestamp || "");
+    setLocationRef(meta?.location_ref || "");
     setIgnoredEntities(meta?.ignored_entities || []);
+
     setDirty(false);
     lastMentionsSyncRef.current = "";
   }, [node.id, node.content, node.summary, node.metadata, setDirty]);
@@ -85,10 +91,9 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
       frequency,
     }));
     
-    // Update mentions in database
-    if (mentions.length > 0 || lastMentionsSyncRef.current !== "") {
-      updateMentions({ nodeId: node.id, mentions });
-    }
+    // Update mentions in database (empty array means clear relations)
+    updateMentions({ nodeId: node.id, mentions });
+
   }, [entities, ignoredEntities, node.id, updateMentions]);
 
   // Calculate word count (Chinese characters)
@@ -119,9 +124,11 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
           ...metadata,
           status,
           timestamp: timestamp || null,
+          location_ref: locationRef || null,
           word_count: wordCount,
           ignored_entities: ignoredEntities,
         },
+
       });
       
       // Sync mentions after save
@@ -141,7 +148,9 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
     summary,
     status,
     timestamp,
+    locationRef,
     metadata,
+
     ignoredEntities,
     updateNode,
     calculateWordCount,
@@ -160,9 +169,11 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
       content: newContent,
       metadata: {
         ...metadata,
+        location_ref: locationRef || null,
         word_count: wordCount,
         ignored_entities: ignoredEntities,
       },
+
     });
 
     // Sync mentions after auto-save
@@ -171,7 +182,8 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
     setDirty(false);
     setLastSavedAt(new Date());
     setSaving(false);
-  }, [node.id, metadata, ignoredEntities, updateNode, calculateWordCount, syncMentions, setDirty, setSaving, setLastSavedAt]);
+  }, [node.id, metadata, locationRef, ignoredEntities, updateNode, calculateWordCount, syncMentions, setDirty, setSaving, setLastSavedAt]);
+
 
   const handleIgnoreEntity = useCallback((entityName: string) => {
     if (!ignoredEntities.includes(entityName)) {
@@ -196,7 +208,7 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
   }, []);
 
   const wordCount = calculateWordCount(content);
-  const { lastSavedAt, isSaving } = useEditorStore();
+
 
   return (
     <div className="flex flex-col h-full">
@@ -214,21 +226,23 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
           {/* Title */}
           <h1 className="text-2xl font-semibold mb-6">{node.title}</h1>
 
-          {/* Metadata Toggle */}
-          <div className="mb-6">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowMetadata(!showMetadata)}
-              className="text-muted-foreground"
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              {showMetadata ? "隐藏元数据" : "显示元数据"}
-            </Button>
-          </div>
+          {/* Metadata Toggle - only show in manuscript mode */}
+          {!isNotesMode && (
+            <div className="mb-6">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowMetadata(!showMetadata)}
+                className="text-muted-foreground"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                {showMetadata ? "隐藏元数据" : "显示元数据"}
+              </Button>
+            </div>
+          )}
 
-          {/* Metadata Panel */}
-          {showMetadata && (
+          {/* Metadata Panel - only show in manuscript mode */}
+          {!isNotesMode && showMetadata && (
             <div className="mb-6 p-4 rounded-lg border bg-muted/30 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 {/* Status */}
@@ -267,7 +281,25 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
                     className="text-sm"
                   />
                 </div>
+
+                {/* Location */}
+                <div className="space-y-2 col-span-2">
+                  <Label className="text-sm text-muted-foreground flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    故事地点
+                  </Label>
+                  <Input
+                    value={locationRef}
+                    onChange={(e) => {
+                      setLocationRef(e.target.value);
+                      setDirty(true);
+                    }}
+                    placeholder="例如：长安城 / 皇宫 / 酒馆"
+                    className="text-sm"
+                  />
+                </div>
               </div>
+
 
               {/* Summary */}
               <div className="space-y-2">
@@ -307,16 +339,18 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
           {/* Word Count Footer */}
           <div className="mt-4 pt-4 border-t flex items-center justify-between text-sm text-muted-foreground">
             <span>{wordCount} 字</span>
-            <span
-              className={cn(
-                "px-2 py-0.5 rounded text-xs",
-                status === "FINAL"
-                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                  : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-              )}
-            >
-              {status === "FINAL" ? "定稿" : "草稿"}
-            </span>
+            {!isNotesMode && (
+              <span
+                className={cn(
+                  "px-2 py-0.5 rounded text-xs",
+                  status === "FINAL"
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                    : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                )}
+              >
+                {status === "FINAL" ? "定稿" : "草稿"}
+              </span>
+            )}
           </div>
         </div>
       </div>

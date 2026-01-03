@@ -3,6 +3,14 @@ export type NodeType = "FOLDER" | "FILE";
 
 export type NodeStatus = "DRAFT" | "FINAL";
 
+// Root folder categories - system-defined, cannot be edited/deleted
+export type RootFolderCategory = "MANUSCRIPT" | "NOTES";
+
+export const ROOT_FOLDER_CONFIG: Record<RootFolderCategory, { label: string; icon: string }> = {
+  MANUSCRIPT: { label: "正文", icon: "book" },
+  NOTES: { label: "笔记", icon: "notebook" },
+};
+
 export interface FileMetadata {
   timestamp?: string | null;
   location_ref?: string | null;
@@ -13,6 +21,8 @@ export interface FileMetadata {
 
 export interface FolderMetadata {
   collapsed: boolean;
+  // For root folders only - defines the category
+  root_category?: RootFolderCategory;
 }
 
 export type NodeMetadata = FileMetadata | FolderMetadata;

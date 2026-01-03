@@ -5,7 +5,8 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { TreeNode } from "@/lib/hooks";
-import { NodeType } from "@/types";
+import { NodeType, RootFolderCategory } from "@/types";
+
 import {
   ContextMenu,
   ContextMenuContent,
@@ -31,6 +32,8 @@ interface TreeNodeItemProps {
   isSelected: boolean;
   isExpanded: boolean;
   isEditing: boolean;
+  isRoot: boolean;
+  rootCategory: RootFolderCategory | null;
   onSelect: () => void;
   onToggleExpand: () => void;
   onStartEdit: () => void;
@@ -39,11 +42,14 @@ interface TreeNodeItemProps {
   onCreate: (type: NodeType) => void;
 }
 
+
 export function TreeNodeItem({
   node,
   isSelected,
   isExpanded,
   isEditing,
+  isRoot,
+  rootCategory,
   onSelect,
   onToggleExpand,
   onStartEdit,
@@ -51,6 +57,7 @@ export function TreeNodeItem({
   onDelete,
   onCreate,
 }: TreeNodeItemProps) {
+
   const [editValue, setEditValue] = useState(node.title);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -61,7 +68,8 @@ export function TreeNodeItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: node.id });
+  } = useSortable({ id: node.id, disabled: isRoot });
+
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -136,19 +144,24 @@ export function TreeNodeItem({
 
           {/* Expand/Collapse chevron for folders */}
           {isFolder ? (
-            <button
-              onClick={handleChevronClick}
-              className="p-0.5 hover:bg-accent rounded"
-            >
-              {isExpanded ? (
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              )}
-            </button>
+            hasChildren || isRoot ? (
+              <button
+                onClick={handleChevronClick}
+                className="p-0.5 hover:bg-accent rounded"
+              >
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+            ) : (
+              <div className="w-5" />
+            )
           ) : (
             <div className="w-5" /> // Spacer for files
           )}
+
 
           {/* Icon */}
           {isFolder ? (
@@ -183,30 +196,36 @@ export function TreeNodeItem({
           <>
             <ContextMenuItem onClick={() => onCreate("FILE")}>
               <FilePlus className="h-4 w-4 mr-2" />
-              新建场景
+              {rootCategory === "NOTES" ? "新建笔记" : "新建场景"}
             </ContextMenuItem>
             <ContextMenuItem onClick={() => onCreate("FOLDER")}>
               <FolderPlus className="h-4 w-4 mr-2" />
-              新建文件夹
+              {rootCategory === "NOTES" ? "新建文件夹" : "新建章节"}
             </ContextMenuItem>
-            <ContextMenuSeparator />
+            {!isRoot && <ContextMenuSeparator />}
           </>
         )}
-        <ContextMenuItem onClick={onStartEdit}>
-          <Pencil className="h-4 w-4 mr-2" />
-          重命名
-          <span className="ml-auto text-xs text-muted-foreground">F2</span>
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem
-          onClick={onDelete}
-          className="text-destructive focus:text-destructive"
-        >
-          <Trash2 className="h-4 w-4 mr-2" />
-          删除
-          <span className="ml-auto text-xs text-muted-foreground">Delete</span>
-        </ContextMenuItem>
+
+        {!isRoot && (
+          <>
+            <ContextMenuItem onClick={onStartEdit}>
+              <Pencil className="h-4 w-4 mr-2" />
+              重命名
+              <span className="ml-auto text-xs text-muted-foreground">F2</span>
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              onClick={onDelete}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              删除
+              <span className="ml-auto text-xs text-muted-foreground">Delete</span>
+            </ContextMenuItem>
+          </>
+        )}
       </ContextMenuContent>
+
     </ContextMenu>
   );
 }

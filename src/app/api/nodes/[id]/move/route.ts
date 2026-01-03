@@ -62,15 +62,44 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return notFoundResponse("节点不存在");
     }
 
+    // Load existing node to protect system root folders
+    const { data: existingNode, error: existingNodeError } = await supabase
+      .from("nodes")
+      .select("id, type, parent_id, metadata")
+      .eq("id", nodeId)
+      .single();
+
+    if (existingNodeError || !existingNode) {
+      console.error("Failed to fetch existing node:", existingNodeError);
+      return internalErrorResponse("获取节点失败");
+    }
+
+    const isRootFolder =
+      existingNode.type === "FOLDER" &&
+      existingNode.parent_id === null &&
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      !!((existingNode.metadata as any)?.root_category);
+
+    if (isRootFolder) {
+      return validationErrorResponse("根目录不能移动");
+    }
+
     // Parse and validate request body
     const body = await request.json();
     const result = moveNodeSchema.safeParse(body);
+
 
     if (!result.success) {
       return validationErrorResponse(result.error.issues[0].message);
     }
 
     const { parent_id, order } = result.data;
+
+    // Disallow moving nodes to top-level (only system root folders are top-level)
+    if (parent_id === null) {
+      return validationErrorResponse("不能将节点移动到顶层");
+    }
+
 
     // If moving to a new parent, verify the parent exists and belongs to the same project
     if (parent_id) {

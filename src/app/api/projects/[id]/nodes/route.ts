@@ -98,6 +98,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { parent_id, type, title, content, outline, summary, metadata } = result.data;
     let { order } = result.data;
 
+    // Disallow creating nodes at top-level (only system root folders are top-level)
+    if (parent_id === null) {
+      return validationErrorResponse("不能在顶层创建节点");
+    }
+
+
     // If order is not provided, generate one
     if (!order) {
       // Get the last sibling's order
