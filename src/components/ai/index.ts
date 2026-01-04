@@ -1,2 +1,2 @@
 // AI 组件导出
-export { AISettingsDialog } from "./ai-settings-dialog";
+// (设置已移至 /settings 页面)

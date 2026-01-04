@@ -77,7 +77,7 @@
 
 ## Phase 2: AI 设置界面
 
-> 用户配置 API Key 和模型偏好
+> 用户配置 API Key 和模型偏好（独立设置页面）
 
 ### 2.1 设置存储
 - [x] 创建 `src/lib/ai/settings.ts`
@@ -92,13 +92,15 @@
 - [x] 管理上下文列表
 - [x] 管理破限模式状态
 
-### 2.3 设置弹窗组件
-- [x] 创建 `src/components/ai/ai-settings-dialog.tsx`
+### 2.3 设置页面
+- [x] 创建 `src/app/(dashboard)/settings/page.tsx`
+- [x] 创建 `src/components/settings/settings-layout.tsx`（左侧导航 + 右侧内容）
+- [x] 创建 `src/components/settings/ai-settings.tsx`（AI 设置内容）
 - [x] 实现 Provider 列表 UI
 - [x] 实现 API Key 输入 + 测试连接
 - [x] 实现功能模型配置 UI
 - [x] 实现自定义 Prompt 编辑器
-- [x] 集成到用户菜单
+- [x] 集成到用户菜单（跳转到 /settings）
 
 ---
 
@@ -296,26 +298,35 @@
 
 ```
 src/
-├── app/api/ai/
-│   └── chat/route.ts              ← Phase 1.5
+├── app/
+│   ├── api/ai/
+│   │   └── chat/route.ts              ← Phase 1.5 ✅
+│   │
+│   └── (dashboard)/settings/
+│       └── page.tsx                   ← Phase 2.3 ✅
 │
-├── components/ai/
-│   ├── ai-chat-window.tsx         ← Phase 3.1
-│   ├── ai-chat-messages.tsx       ← Phase 3.2
-│   ├── ai-chat-input.tsx          ← Phase 3.3
-│   ├── ai-function-select.tsx     ← Phase 3.4
-│   ├── ai-context-tags.tsx        ← Phase 3.5
-│   ├── ai-result-card.tsx         ← Phase 4.3
-│   ├── ai-settings-dialog.tsx     ← Phase 2.3
-│   ├── ai-context-menu.tsx        ← Phase 4.2
-│   └── index.ts                   ← Phase 3
+├── components/
+│   ├── ai/
+│   │   ├── ai-chat-window.tsx         ← Phase 3.1
+│   │   ├── ai-chat-messages.tsx       ← Phase 3.2
+│   │   ├── ai-chat-input.tsx          ← Phase 3.3
+│   │   ├── ai-function-select.tsx     ← Phase 3.4
+│   │   ├── ai-context-tags.tsx        ← Phase 3.5
+│   │   ├── ai-result-card.tsx         ← Phase 4.3
+│   │   ├── ai-context-menu.tsx        ← Phase 4.2
+│   │   └── index.ts                   ← Phase 3
+│   │
+│   └── settings/
+│       ├── settings-layout.tsx        ← Phase 2.3 ✅
+│       ├── ai-settings.tsx            ← Phase 2.3 ✅
+│       └── index.ts                   ← Phase 2.3 ✅
 │
 ├── lib/ai/
 │   ├── providers/
-│   │   ├── index.ts               ← Phase 1.4
-│   │   ├── base.ts                ← Phase 1.1
-│   │   ├── siliconflow.ts         ← Phase 1.2
-│   │   └── gemini.ts              ← Phase 1.3
+│   │   ├── index.ts               ← Phase 1.4 ✅
+│   │   ├── base.ts                ← Phase 1.1 ✅
+│   │   ├── siliconflow.ts         ← Phase 1.2 ✅
+│   │   └── gemini.ts              ← Phase 1.3 ✅
 │   │
 │   ├── prompts/
 │   │   ├── index.ts               ← Phase 4.1
@@ -329,11 +340,11 @@ src/
 │   │   └── jailbreak.ts           ← Phase 6.1
 │   │
 │   ├── context-builder.ts         ← Phase 4.4
-│   ├── settings.ts                ← Phase 2.1
-│   └── types.ts                   ← Phase 1.1
+│   ├── settings.ts                ← Phase 2.1 ✅
+│   └── types.ts                   ← Phase 1.1 ✅
 │
 └── lib/stores/
-    └── ai-store.ts                ← Phase 2.2
+    └── ai-store.ts                ← Phase 2.2 ✅
 ```
 
 ### 待修改文件
@@ -341,9 +352,9 @@ src/
 | 文件 | 修改内容 | Phase |
 |------|----------|-------|
 | `components/layout/app-shell.tsx` | 添加聊天浮窗 | 3.6 |
-| `components/auth/user-menu.tsx` | 添加 AI 设置入口 | 2.3 |
+| `components/auth/user-menu.tsx` | 添加设置页面入口 | 2.3 ✅ |
 | `components/editor/entity-aware-editor.tsx` | 集成右键菜单 | 4.2 |
-| `lib/stores/index.ts` | 导出 AI Store | 2.2 |
+| `lib/stores/index.ts` | 导出 AI Store | 2.2 ✅ |
 | `types/index.ts` | 添加 AI 相关类型（可选） | 1.1 |
 
 ---
