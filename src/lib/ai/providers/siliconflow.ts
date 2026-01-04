@@ -14,56 +14,13 @@ export class SiliconFlowProvider extends OpenAICompatibleProvider {
 
   /**
    * 推荐的模型列表
-   * SiliconFlow 有很多模型，这里列出一些常用的
    */
   static RECOMMENDED_MODELS: AIModel[] = [
     {
-      id: "Qwen/Qwen2.5-7B-Instruct",
-      name: "Qwen2.5 7B",
-      description: "通义千问 2.5 7B，平衡性能与速度",
-      contextLength: 32768,
-    },
-    {
-      id: "Qwen/Qwen2.5-14B-Instruct",
-      name: "Qwen2.5 14B",
-      description: "通义千问 2.5 14B，更强的推理能力",
-      contextLength: 32768,
-    },
-    {
-      id: "Qwen/Qwen2.5-32B-Instruct",
-      name: "Qwen2.5 32B",
-      description: "通义千问 2.5 32B，高质量输出",
-      contextLength: 32768,
-    },
-    {
-      id: "Qwen/Qwen2.5-72B-Instruct",
-      name: "Qwen2.5 72B",
-      description: "通义千问 2.5 72B，最强性能",
-      contextLength: 32768,
-    },
-    {
-      id: "deepseek-ai/DeepSeek-V2.5",
-      name: "DeepSeek V2.5",
-      description: "DeepSeek V2.5，优秀的中文能力",
+      id: "Pro/deepseek-ai/DeepSeek-V3",
+      name: "DeepSeek V3 (Pro)",
+      description: "DeepSeek V3 Pro 版本，高质量输出",
       contextLength: 65536,
-    },
-    {
-      id: "deepseek-ai/DeepSeek-V3",
-      name: "DeepSeek V3",
-      description: "DeepSeek V3，最新版本",
-      contextLength: 65536,
-    },
-    {
-      id: "meta-llama/Meta-Llama-3.1-8B-Instruct",
-      name: "Llama 3.1 8B",
-      description: "Meta Llama 3.1 8B",
-      contextLength: 8192,
-    },
-    {
-      id: "meta-llama/Meta-Llama-3.1-70B-Instruct",
-      name: "Llama 3.1 70B",
-      description: "Meta Llama 3.1 70B",
-      contextLength: 8192,
     },
   ];
 
@@ -94,6 +51,6 @@ export class SiliconFlowProvider extends OpenAICompatibleProvider {
    * 获取默认模型
    */
   static getDefaultModel(): string {
-    return "Qwen/Qwen2.5-7B-Instruct";
+    return "Pro/deepseek-ai/DeepSeek-V3";
   }
 }

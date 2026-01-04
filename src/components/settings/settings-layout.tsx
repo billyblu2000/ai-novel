@@ -39,9 +39,9 @@ export function SettingsLayout({ children }: SettingsLayoutProps) {
   const currentTab = searchParams.get("tab") || "ai";
 
   return (
-    <div className="flex min-h-[calc(100vh-3.5rem)]">
-      {/* 左侧导航 - 桌面端 */}
-      <aside className="hidden md:flex w-56 flex-col border-r bg-muted/30">
+    <div className="flex h-[calc(100vh-3.5rem)]">
+      {/* 左侧导航 - 桌面端（固定） */}
+      <aside className="hidden md:flex w-56 flex-col border-r bg-muted/30 flex-shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
         <div className="p-4">
           <Button variant="ghost" size="sm" asChild className="mb-4">
             <Link href="/projects">

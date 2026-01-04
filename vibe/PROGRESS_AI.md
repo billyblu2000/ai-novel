@@ -1,6 +1,6 @@
 # AI Novel Studio - AI 功能开发进度
 
-> 最后更新: 2026-01-04
+> 最后更新: 2026-01-03
 
 ## 概述
 
@@ -12,6 +12,13 @@
 2. **三大功能** - 修改（润色/扩写/缩写）、生成（续写/规划/总结）、聊天
 3. **聊天浮窗** - 始终可用的 AI 交互界面
 4. **破限模式** - 三重机制实现稳定破限
+
+### 支持模型
+
+| 服务商 | 模型 |
+|--------|------|
+| SiliconFlow | Pro/deepseek-ai/DeepSeek-V3.2 |
+| Google Gemini | gemini-3-pro-preview, gemini-3-flash-preview |
 
 ---
 
@@ -94,13 +101,14 @@
 
 ### 2.3 设置页面
 - [x] 创建 `src/app/(dashboard)/settings/page.tsx`
-- [x] 创建 `src/components/settings/settings-layout.tsx`（左侧导航 + 右侧内容）
+- [x] 创建 `src/components/settings/settings-layout.tsx`（左侧导航固定 + 右侧内容可滚动）
 - [x] 创建 `src/components/settings/ai-settings.tsx`（AI 设置内容）
 - [x] 实现 Provider 列表 UI
 - [x] 实现 API Key 输入 + 测试连接
 - [x] 实现功能模型配置 UI
-- [x] 实现自定义 Prompt 编辑器
 - [x] 集成到用户菜单（跳转到 /settings）
+
+> 注：自定义 Prompt 功能已移除。Prompt 由系统预设，用户如需额外要求可在聊天框中补充说明。
 
 ---
 

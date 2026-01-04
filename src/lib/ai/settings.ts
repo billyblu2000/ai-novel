@@ -158,19 +158,6 @@ export function updateFunctionModel(
 }
 
 /**
- * 更新自定义 Prompt
- */
-export function updateCustomPrompt(
-  func: AIFunction,
-  prompt: string | null
-): AISettings {
-  const settings = loadAISettings();
-  settings.customPrompts[func] = prompt;
-  saveAISettings(settings);
-  return settings;
-}
-
-/**
  * 切换破限模式
  */
 export function toggleJailbreak(enabled: boolean): AISettings {
@@ -224,8 +211,8 @@ export function getProviderForFunction(
 
     // 默认模型
     const defaultModels: Record<string, string> = {
-      siliconflow: "Qwen/Qwen2.5-7B-Instruct",
-      gemini: "gemini-1.5-flash",
+      siliconflow: "Pro/deepseek-ai/DeepSeek-V3",
+      gemini: "gemini-2.5-flash-preview-05-20",
     };
 
     return {

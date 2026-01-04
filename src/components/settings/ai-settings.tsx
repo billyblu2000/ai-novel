@@ -11,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import {
   CheckCircle2,
@@ -19,7 +18,6 @@ import {
   Loader2,
   Eye,
   EyeOff,
-  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAIStore, initializeAIStore } from "@/lib/stores/ai-store";
@@ -41,73 +39,12 @@ const AI_FUNCTIONS: { id: AIFunction; name: string; description: string }[] = [
   { id: "chat", name: "聊天", description: "自由对话" },
 ];
 
-// 默认 Prompt 模板
-const DEFAULT_PROMPTS: Record<AIFunction, string> = {
-  polish: `请润色以下文字，提升文学性和可读性。
-
-## 要求
-- 保持原意不变
-- 优化句式结构
-- 增强表达力度
-- 修正语法错误
-- 不要大幅增加或删减内容
-
-请直接输出润色后的文字，不要添加解释。`,
-  expand: `请扩写以下文字，丰富细节和描写。
-
-## 要求
-- 扩展到原文的 2-3 倍长度
-- 增加环境描写、心理活动或感官细节
-- 保持与上下文的连贯性
-- 符合当前场景的氛围
-
-请直接输出扩写后的文字。`,
-  compress: `请精简以下文字，保留核心信息。
-
-## 要求
-- 压缩到原文的 1/2 左右
-- 保留关键情节和信息
-- 删除冗余描写
-- 保持语句流畅
-
-请直接输出精简后的文字。`,
-  continue: `请续写以下内容。
-
-## 要求
-- 自然衔接上文
-- 保持风格一致
-- 推进情节发展
-- 约 300-500 字
-
-请直接输出续写内容。`,
-  plan: `请根据父章节的规划，为当前场景生成摘要。
-
-## 要求
-- 50-100 字
-- 概括这个场景应该发生什么
-- 与父章节规划保持一致
-- 为后续写作提供方向
-
-请直接输出场景摘要。`,
-  summarize: `请为以下内容生成摘要。
-
-## 要求
-- 50-100 字
-- 概括核心事件
-- 提及主要角色
-- 不剧透结局细节
-
-请直接输出摘要。`,
-  chat: `你是一位专业的小说写作助手，擅长中文长篇小说创作。请根据用户的问题提供帮助。`,
-};
-
 export function AISettings() {
   const {
     settings,
     settingsLoaded,
     updateProviderSettings,
     updateFunctionModel,
-    updateCustomPrompt,
   } = useAIStore();
 
   // 初始化设置
@@ -136,13 +73,6 @@ export function AISettings() {
     Record<AIFunction, FunctionModelConfig | "auto">
   >({} as Record<AIFunction, FunctionModelConfig | "auto">);
 
-  // 自定义 Prompt 状态
-  const [customPrompts, setCustomPrompts] = useState<
-    Record<AIFunction, string>
-  >({} as Record<AIFunction, string>);
-  const [selectedPromptFunction, setSelectedPromptFunction] =
-    useState<AIFunction>("polish");
-
   // 从 settings 初始化本地状态
   useEffect(() => {
     if (settingsLoaded) {
@@ -165,17 +95,6 @@ export function AISettings() {
 
       // 初始化功能模型配置
       setFunctionConfigs({ ...settings.functionModels });
-
-      // 初始化自定义 Prompt
-      const prompts: Record<AIFunction, string> = {} as Record<
-        AIFunction,
-        string
-      >;
-      for (const func of AI_FUNCTIONS) {
-        prompts[func.id] =
-          settings.customPrompts[func.id] || DEFAULT_PROMPTS[func.id];
-      }
-      setCustomPrompts(prompts);
     }
   }, [settingsLoaded, settings]);
 
@@ -243,16 +162,6 @@ export function AISettings() {
       setFunctionConfigs((prev) => ({ ...prev, [func]: config }));
     },
     [updateFunctionModel]
-  );
-
-  // 保存自定义 Prompt
-  const saveCustomPrompt = useCallback(
-    (func: AIFunction, prompt: string) => {
-      const isDefault = prompt === DEFAULT_PROMPTS[func];
-      updateCustomPrompt(func, isDefault ? null : prompt);
-      toast.success("Prompt 已保存");
-    },
-    [updateCustomPrompt]
   );
 
   // 获取可用的 Provider 列表（用于功能模型选择）
@@ -507,79 +416,6 @@ export function AISettings() {
             })}
           </div>
         )}
-      </section>
-
-      <Separator />
-
-      {/* 自定义 Prompt */}
-      <section>
-        <h3 className="text-lg font-semibold mb-4">自定义 Prompt</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          自定义各功能的 Prompt 模板。使用变量：{`{{selected_text}}`},{" "}
-          {`{{context}}`}, {`{{scene_title}}`} 等。
-        </p>
-
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {AI_FUNCTIONS.map((func) => (
-              <Button
-                key={func.id}
-                variant={
-                  selectedPromptFunction === func.id ? "default" : "outline"
-                }
-                size="sm"
-                onClick={() => setSelectedPromptFunction(func.id)}
-              >
-                {func.name}
-              </Button>
-            ))}
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>
-                {
-                  AI_FUNCTIONS.find((f) => f.id === selectedPromptFunction)
-                    ?.name
-                }{" "}
-                Prompt
-              </Label>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setCustomPrompts((prev) => ({
-                    ...prev,
-                    [selectedPromptFunction]:
-                      DEFAULT_PROMPTS[selectedPromptFunction],
-                  }));
-                  updateCustomPrompt(selectedPromptFunction, null);
-                  toast.success("已恢复默认");
-                }}
-              >
-                <RotateCcw className="h-4 w-4 mr-1" />
-                恢复默认
-              </Button>
-            </div>
-            <Textarea
-              value={customPrompts[selectedPromptFunction] || ""}
-              onChange={(e) => {
-                setCustomPrompts((prev) => ({
-                  ...prev,
-                  [selectedPromptFunction]: e.target.value,
-                }));
-              }}
-              onBlur={() =>
-                saveCustomPrompt(
-                  selectedPromptFunction,
-                  customPrompts[selectedPromptFunction]
-                )
-              }
-              rows={12}
-              className="font-mono text-sm"
-            />
-          </div>
-        </div>
       </section>
     </div>
   );

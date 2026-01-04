@@ -137,11 +137,6 @@ export interface AISettings {
     [K in AIFunction]: FunctionModelConfig | "auto";
   };
 
-  /** 自定义 Prompt，null 表示使用默认 */
-  customPrompts: {
-    [K in AIFunction]?: string | null;
-  };
-
   /** 破限模式是否启用 */
   jailbreakEnabled: boolean;
 }
@@ -160,7 +155,6 @@ export const DEFAULT_AI_SETTINGS: AISettings = {
     summarize: "auto",
     chat: "auto",
   },
-  customPrompts: {},
   jailbreakEnabled: false,
 };
 

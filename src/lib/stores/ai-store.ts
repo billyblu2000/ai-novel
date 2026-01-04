@@ -14,10 +14,8 @@ import type {
 import { DEFAULT_AI_SETTINGS } from "@/lib/ai/types";
 import {
   loadAISettings,
-  saveAISettings,
   updateProviderSettings as updateProviderSettingsStorage,
   updateFunctionModel as updateFunctionModelStorage,
-  updateCustomPrompt as updateCustomPromptStorage,
   toggleJailbreak as toggleJailbreakStorage,
 } from "@/lib/ai/settings";
 
@@ -70,7 +68,6 @@ interface AIState {
     func: AIFunction,
     config: FunctionModelConfig | "auto"
   ) => void;
-  updateCustomPrompt: (func: AIFunction, prompt: string | null) => void;
   toggleJailbreak: (enabled: boolean) => void;
 
   // 聊天相关
@@ -137,12 +134,6 @@ export const useAIStore = create<AIState>((set, get) => ({
   // 更新功能模型配置
   updateFunctionModel: (func, config) => {
     const newSettings = updateFunctionModelStorage(func, config);
-    set({ settings: newSettings });
-  },
-
-  // 更新自定义 Prompt
-  updateCustomPrompt: (func, prompt) => {
-    const newSettings = updateCustomPromptStorage(func, prompt);
     set({ settings: newSettings });
   },
 
