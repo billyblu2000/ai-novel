@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useAIStore } from "@/lib/stores/ai-store";
 import { Sparkles, User } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import ReactMarkdown from "react-markdown";
 
 /**
  * AI 聊天消息列表组件
@@ -143,13 +144,21 @@ function MessageBubble({ role, content, isStreaming }: MessageBubbleProps) {
               : "bg-muted/70 text-foreground rounded-tl-md"
           )}
         >
-          <div className="whitespace-pre-wrap break-words leading-relaxed">
-            {content}
-            {/* 流式输出光标 */}
-            {isStreaming && (
-              <span className="inline-block w-0.5 h-4 ml-0.5 bg-foreground animate-pulse" />
-            )}
-          </div>
+          {isUser ? (
+            // 用户消息：纯文本
+            <div className="whitespace-pre-wrap break-words leading-relaxed">
+              {content}
+            </div>
+          ) : (
+            // AI 消息：Markdown 渲染
+            <div className="prose prose-sm dark:prose-invert max-w-none break-words leading-relaxed prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-pre:my-2 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:bg-background/50 prose-pre:bg-background/50 prose-pre:p-2 prose-pre:rounded-lg">
+              <ReactMarkdown>{content}</ReactMarkdown>
+              {/* 流式输出光标 */}
+              {isStreaming && (
+                <span className="inline-block w-0.5 h-4 ml-0.5 bg-foreground animate-pulse align-middle" />
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
