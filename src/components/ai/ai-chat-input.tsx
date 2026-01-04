@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useAIStore } from "@/lib/stores/ai-store";
 import { ArrowUp, Square, Loader2, ChevronDown, Lock, Unlock } from "lucide-react";
 import { getModelForFunction } from "@/lib/ai/settings";
-import type { AIFunction } from "@/lib/ai/types";
+import type { AIFunction, AIContext } from "@/lib/ai/types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +43,7 @@ export function AIChatInput() {
     currentFunction,
     setCurrentFunction,
     selectedText,
+    userContexts,
     settings,
     toggleJailbreak,
     isLoading,
@@ -82,6 +83,13 @@ export function AIChatInput() {
     try {
       abortControllerRef.current = new AbortController();
 
+      // 构建上下文
+      const context: AIContext = {
+        userContexts: userContexts,
+        relatedEntities: [],
+        previousSummaries: [],
+      };
+
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -98,6 +106,8 @@ export function AIChatInput() {
             { role: "user", content: trimmedInput },
           ],
           jailbreak: settings.jailbreakEnabled,
+          context: userContexts.length > 0 ? context : undefined,
+          selectedText: selectedText || undefined,
           stream: true,
         }),
         signal: abortControllerRef.current.signal,
@@ -160,6 +170,8 @@ export function AIChatInput() {
   }, [
     input,
     currentFunction,
+    userContexts,
+    selectedText,
     settings.jailbreakEnabled,
     isLoading,
     isStreaming,

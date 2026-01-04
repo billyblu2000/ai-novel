@@ -148,11 +148,11 @@
 - [x] 实现破限模式开关
 
 ### 3.5 上下文标签
-- [ ] 创建 `src/components/ai/ai-context-tags.tsx`（后续 Phase 4 实现）
-- [ ] 实现上下文标签显示
-- [ ] 实现添加上下文按钮
-- [ ] 实现上下文选择器（节点/选段/实体）
-- [ ] 实现删除上下文
+- [x] 创建 `src/components/ai/ai-context-tags.tsx`
+- [x] 实现上下文标签显示
+- [x] 实现添加上下文按钮
+- [x] 实现上下文选择器（节点/选段/实体）
+- [x] 实现删除上下文
 
 ### 3.6 移动端适配
 - [ ] 实现移动端底部抽屉模式（占 80% 屏幕高度）（后续优化）
@@ -316,14 +316,15 @@ src/
 │
 ├── components/
 │   ├── ai/
-│   │   ├── ai-chat-window.tsx         ← Phase 3.1
-│   │   ├── ai-chat-messages.tsx       ← Phase 3.2
-│   │   ├── ai-chat-input.tsx          ← Phase 3.3
-│   │   ├── ai-function-select.tsx     ← Phase 3.4
-│   │   ├── ai-context-tags.tsx        ← Phase 3.5
+│   │   ├── ai-chat-window.tsx         ← Phase 3.1 ✅
+│   │   ├── ai-chat-messages.tsx       ← Phase 3.2 ✅
+│   │   ├── ai-chat-input.tsx          ← Phase 3.3 ✅
+│   │   ├── ai-function-select.tsx     ← Phase 3.4 ✅
+│   │   ├── ai-context-tags.tsx        ← Phase 3.5 ✅
+│   │   ├── ai-context-selector.tsx    ← Phase 3.5 ✅
 │   │   ├── ai-result-card.tsx         ← Phase 4.3
 │   │   ├── ai-context-menu.tsx        ← Phase 4.2
-│   │   └── index.ts                   ← Phase 3
+│   │   └── index.ts                   ← Phase 3 ✅
 │   │
 │   └── settings/
 │       ├── settings-layout.tsx        ← Phase 2.3 ✅

@@ -10,7 +10,7 @@ import { NodeEditor } from "@/components/editor";
 import { EntitySidebar } from "@/components/entities";
 import { AIChatWindow } from "@/components/ai";
 import { useEditorStore } from "@/lib/stores";
-import { useNodes } from "@/lib/hooks";
+import { useNodes, useEntities } from "@/lib/hooks";
 import { Project } from "@/types";
 import { Header } from "@/components/layout/header";
 import { Node } from "@/types";
@@ -29,6 +29,7 @@ export function EditorLayout({ project, user, profile }: EditorLayoutProps) {
 
   const { activeNodeId, setActiveProject, setActiveNode } = useEditorStore();
   const { nodes } = useNodes(project.id);
+  const { entities } = useEntities(project.id);
 
   // Set active project on mount
   useEffect(() => {
@@ -121,7 +122,7 @@ export function EditorLayout({ project, user, profile }: EditorLayoutProps) {
       </div>
       
       {/* AI 聊天浮窗 */}
-      <AIChatWindow />
+      <AIChatWindow nodes={nodes} entities={entities} />
     </div>
   );
 }

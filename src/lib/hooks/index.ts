@@ -9,3 +9,11 @@ export {
   countNodesByType,
   type TreeNode,
 } from "./use-nodes";
+export {
+  useEntities,
+  useMentions,
+  groupEntitiesByType,
+  getEntitySearchTerms,
+  getAllSearchTerms,
+  countEntitiesByType,
+} from "./use-entities";
