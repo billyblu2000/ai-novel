@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useAIStore, initializeAIStore } from "@/lib/stores/ai-store";
 import { Button } from "@/components/ui/button";
-import { Bot, Minus, X } from "lucide-react";
+import { Sparkles, Minus, X, Settings } from "lucide-react";
 import { AIChatMessages } from "./ai-chat-messages";
 import { AIChatInput } from "./ai-chat-input";
-import { AIFunctionSelect } from "./ai-function-select";
+import Link from "next/link";
 
 /**
  * AI 聊天浮窗组件
- * 支持收起/展开状态
+ * 现代简约风格，参考 ChatGPT 设计
  */
 export function AIChatWindow() {
   const {
@@ -36,24 +36,25 @@ export function AIChatWindow() {
   if (!isChatWindowOpen) {
     return (
       <div className="fixed bottom-6 right-6 z-50">
-        <Button
+        <button
           onClick={() => toggleChatWindow(true)}
           className={cn(
-            "h-14 w-14 rounded-full shadow-lg",
-            "bg-primary hover:bg-primary/90",
-            "transition-all duration-200 hover:scale-105",
-            "relative"
+            "group relative h-14 w-14 rounded-full",
+            "bg-gradient-to-br from-violet-500 to-purple-600",
+            "shadow-lg shadow-purple-500/25",
+            "transition-all duration-300 ease-out",
+            "hover:scale-110 hover:shadow-xl hover:shadow-purple-500/30",
+            "active:scale-95"
           )}
-          size="icon"
         >
-          <Bot className="h-6 w-6" />
-          {/* 脉冲动画 */}
-          <span className="absolute inset-0 rounded-full bg-primary/30 animate-ping" />
+          <Sparkles className="h-6 w-6 text-white mx-auto" />
+          {/* 光晕效果 */}
+          <span className="absolute inset-0 rounded-full bg-gradient-to-br from-violet-400 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-md -z-10" />
           {/* 未读消息红点 */}
           {hasUnreadMessage && (
-            <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive border-2 border-background" />
+            <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-red-500 border-2 border-background animate-pulse" />
           )}
-        </Button>
+        </button>
       </div>
     );
   }
@@ -63,83 +64,100 @@ export function AIChatWindow() {
     <div
       className={cn(
         "fixed bottom-6 right-6 z-50",
-        "w-[400px] h-[500px]",
-        "bg-background border rounded-lg shadow-2xl",
+        "w-[420px] h-[540px]",
         "flex flex-col",
-        "animate-in slide-in-from-bottom-4 fade-in duration-200",
-        // 破限模式边框
-        settings.jailbreakEnabled &&
-          "border-2 border-transparent bg-clip-padding",
-        settings.jailbreakEnabled &&
-          "before:absolute before:inset-0 before:-z-10 before:rounded-lg before:p-[2px] before:bg-gradient-to-r before:from-purple-500 before:to-pink-500"
+        "animate-in slide-in-from-bottom-4 fade-in duration-300",
+        "rounded-2xl overflow-hidden",
+        // 破限模式特效边框
+        settings.jailbreakEnabled
+          ? "p-[2px] bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400"
+          : "shadow-2xl shadow-black/20"
       )}
     >
-      {/* 标题栏 */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30 rounded-t-lg">
-        <div className="flex items-center gap-2">
-          <Bot className="h-5 w-5 text-primary" />
-          <span className="font-medium">AI 助手</span>
-          {settings.jailbreakEnabled && (
-            <span className="text-xs text-pink-500 font-medium">
-              ⚠️ 破限模式
-            </span>
+      {/* 内容容器 */}
+      <div
+        className={cn(
+          "flex flex-col flex-1 bg-background overflow-hidden",
+          settings.jailbreakEnabled ? "rounded-[14px]" : "rounded-2xl border border-border/50"
+        )}
+      >
+        {/* 标题栏 - 毛玻璃效果 */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-muted/50 backdrop-blur-sm">
+          <div className="flex items-center gap-2.5">
+            <div className={cn(
+              "h-8 w-8 rounded-lg flex items-center justify-center",
+              settings.jailbreakEnabled
+                ? "bg-gradient-to-br from-purple-500 to-pink-500"
+                : "bg-gradient-to-br from-violet-500 to-purple-600"
+            )}>
+              <Sparkles className="h-4 w-4 text-white" />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-semibold text-sm leading-tight">AI 写作助手</span>
+              {settings.jailbreakEnabled && (
+                <span className="text-[10px] text-pink-500 font-medium leading-tight">
+                  创意模式已开启
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+              onClick={() => toggleChatWindow(false)}
+              title="收起"
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                clearChatHistory();
+                toggleChatWindow(false);
+              }}
+              title="关闭并清空对话"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* 消息区域 */}
+        <div className="flex-1 overflow-hidden">
+          {!hasEnabledProvider ? (
+            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-violet-500/10 to-purple-600/10 flex items-center justify-center mb-4">
+                <Sparkles className="h-8 w-8 text-violet-500" />
+              </div>
+              <p className="text-foreground font-medium mb-1">
+                开始使用 AI 助手
+              </p>
+              <p className="text-sm text-muted-foreground mb-4">
+                请先配置 AI 服务商以启用功能
+              </p>
+              <Button asChild variant="outline" size="sm" className="gap-2">
+                <Link href="/settings?tab=ai">
+                  <Settings className="h-4 w-4" />
+                  前往设置
+                </Link>
+              </Button>
+            </div>
+          ) : (
+            <AIChatMessages />
           )}
         </div>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => toggleChatWindow(false)}
-            title="收起"
-          >
-            <Minus className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => {
-              clearChatHistory();
-              toggleChatWindow(false);
-            }}
-            title="关闭并清空对话"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
 
-      {/* 消息区域 */}
-      <div className="flex-1 overflow-hidden">
-        {!hasEnabledProvider ? (
-          <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-            <Bot className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground mb-2">
-              请先配置 AI 服务商
-            </p>
-            <p className="text-sm text-muted-foreground">
-              前往 设置 → AI 设置 添加 API Key
-            </p>
+        {/* 输入区域 */}
+        {hasEnabledProvider && (
+          <div className="p-3 border-t border-border/50 bg-muted/30">
+            <AIChatInput />
           </div>
-        ) : (
-          <AIChatMessages />
         )}
       </div>
-
-      {/* 功能选择器 */}
-      {hasEnabledProvider && (
-        <div className="px-4 py-2 border-t bg-muted/20">
-          <AIFunctionSelect />
-        </div>
-      )}
-
-      {/* 输入区域 */}
-      {hasEnabledProvider && (
-        <div className="px-4 py-3 border-t">
-          <AIChatInput />
-        </div>
-      )}
     </div>
   );
 }
