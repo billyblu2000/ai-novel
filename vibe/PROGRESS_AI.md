@@ -236,9 +236,9 @@
 - [ ] 测试总结功能
 
 ### 5.5 普通聊天
-- [ ] 实现自由对话 Prompt
-- [ ] 实现对话历史管理
-- [ ] 测试聊天功能
+- [x] 实现自由对话 Prompt
+- [x] 实现对话历史管理
+- [x] 测试聊天功能
 
 ---
 
@@ -339,7 +339,9 @@ src/
 │   │   └── gemini.ts              ← Phase 1.3 ✅
 │   │
 │   ├── prompts/
-│   │   ├── index.ts               ← Phase 4.1
+│   │   ├── index.ts               ← Phase 5.5 ✅
+│   │   ├── chat.ts                ← Phase 5.5 ✅
+│   │   ├── context-formatter.ts   ← Phase 5.5 ✅
 │   │   ├── system.ts              ← Phase 4.1
 │   │   ├── polish.ts              ← Phase 4.1
 │   │   ├── expand.ts              ← Phase 4.1

@@ -139,7 +139,7 @@ export function AIChatWindow({ nodes = [], entities = [] }: AIChatWindowProps) {
                 size="icon"
                 className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
                 onClick={() => toggleChatWindow(false)}
-                title="收起"
+                title="收起（保留对话）"
               >
                 <Minus className="h-4 w-4" />
               </Button>

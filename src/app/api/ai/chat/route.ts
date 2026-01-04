@@ -5,7 +5,9 @@ import {
   validationErrorResponse,
   internalErrorResponse,
 } from "@/lib/api/response";
-import type { AIFunction, ChatMessage } from "@/lib/ai/types";
+import type { AIFunction, ChatMessage, UserContextItem } from "@/lib/ai/types";
+import { buildChatSystemPrompt } from "@/lib/ai/prompts";
+import { formatUserContexts } from "@/lib/ai/prompts";
 
 /**
  * AI Chat 请求 Schema
@@ -41,6 +43,35 @@ const chatRequestSchema = z.object({
   stream: z.boolean().optional().default(true),
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().positive().optional(),
+
+  // 上下文相关
+  context: z
+    .object({
+      userContexts: z.array(
+        z.union([
+          z.object({
+            type: z.literal("node"),
+            nodeId: z.string(),
+            title: z.string(),
+            content: z.string(),
+          }),
+          z.object({
+            type: z.literal("selection"),
+            text: z.string(),
+          }),
+          z.object({
+            type: z.literal("entity"),
+            entityId: z.string(),
+            name: z.string(),
+            description: z.string(),
+          }),
+        ])
+      ),
+      relatedEntities: z.array(z.any()).optional(),
+      previousSummaries: z.array(z.string()).optional(),
+    })
+    .optional(),
+  selectedText: z.string().optional(),
 });
 
 export type ChatRequestBody = z.infer<typeof chatRequestSchema>;
@@ -65,11 +96,13 @@ export async function POST(request: NextRequest) {
     }
 
     const {
+      function: aiFunction,
       provider: providerConfig,
       messages,
       stream = true,
       temperature,
       maxTokens,
+      context,
     } = parseResult.data;
 
     // 获取 Provider
@@ -86,8 +119,33 @@ export async function POST(request: NextRequest) {
       model: providerConfig.model,
     };
 
+    // 构建消息列表，注入 System Prompt
+    let finalMessages: ChatMessage[] = [...messages];
+
+    // 对于聊天功能，注入 System Prompt
+    if (aiFunction === "chat") {
+      // 格式化用户上下文
+      const contextInfo = context?.userContexts
+        ? formatUserContexts(context.userContexts as UserContextItem[])
+        : undefined;
+
+      // 构建 System Prompt
+      const systemPrompt = buildChatSystemPrompt(contextInfo);
+
+      // 检查是否已有 system 消息
+      const hasSystemMessage = finalMessages.some((m) => m.role === "system");
+
+      if (!hasSystemMessage) {
+        // 在消息列表开头添加 system 消息
+        finalMessages = [
+          { role: "system", content: systemPrompt },
+          ...finalMessages,
+        ];
+      }
+    }
+
     const params = {
-      messages: messages as ChatMessage[],
+      messages: finalMessages,
       model: providerConfig.model,
       temperature,
       maxTokens,
