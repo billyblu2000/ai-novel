@@ -212,7 +212,7 @@ export function getProviderForFunction(
     // 默认模型
     const defaultModels: Record<string, string> = {
       siliconflow: "Pro/deepseek-ai/DeepSeek-V3",
-      gemini: "gemini-2.5-flash-preview-05-20",
+      gemini: "gemini-3-flash-preview",
     };
 
     return {

@@ -17,15 +17,15 @@ export class GeminiProvider extends OpenAICompatibleProvider {
    */
   static AVAILABLE_MODELS: AIModel[] = [
     {
-      id: "gemini-2.5-pro-preview-05-06",
-      name: "Gemini 2.5 Pro Preview",
-      description: "Gemini 2.5 Pro 预览版，强大的推理能力",
+      id: "gemini-3-pro-preview",
+      name: "Gemini 3 Pro Preview",
+      description: "全球领先的多模态理解模型，最强大的智能体和编程模型",
       contextLength: 1048576,
     },
     {
-      id: "gemini-2.5-flash-preview-05-20",
-      name: "Gemini 2.5 Flash Preview",
-      description: "Gemini 2.5 Flash 预览版，快速响应",
+      id: "gemini-3-flash-preview",
+      name: "Gemini 3 Flash Preview",
+      description: "最智能的模型，专为速度而打造",
       contextLength: 1048576,
     },
   ];
@@ -62,7 +62,7 @@ export class GeminiProvider extends OpenAICompatibleProvider {
           id: this.id,
           apiKey,
           baseUrl,
-          model: "gemini-2.5-flash-preview-05-20",
+          model: "gemini-3-flash-preview",
         };
 
         await this.chatSync(config, {
@@ -92,7 +92,7 @@ export class GeminiProvider extends OpenAICompatibleProvider {
     // 同时确保 model 使用正确的格式
     return {
       ...body,
-      model: params.model || config.model || "gemini-2.5-flash-preview-05-20",
+      model: params.model || config.model || "gemini-3-flash-preview",
     };
   }
 
@@ -114,6 +114,6 @@ export class GeminiProvider extends OpenAICompatibleProvider {
    * 获取默认模型
    */
   static getDefaultModel(): string {
-    return "gemini-2.5-flash-preview-05-20";
+    return "gemini-3-flash-preview";
   }
 }
