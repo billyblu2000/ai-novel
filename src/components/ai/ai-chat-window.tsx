@@ -84,13 +84,8 @@ export function AIChatWindow() {
         {/* 标题栏 - 毛玻璃效果 */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-muted/50 backdrop-blur-sm">
           <div className="flex items-center gap-2.5">
-            <div className={cn(
-              "h-8 w-8 rounded-lg flex items-center justify-center",
-              settings.jailbreakEnabled
-                ? "bg-gradient-to-br from-purple-500 to-pink-500"
-                : "bg-gradient-to-br from-violet-500 to-purple-600"
-            )}>
-              <Sparkles className="h-4 w-4 text-white" />
+            <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-foreground">
+              <Sparkles className="h-4 w-4 text-background" />
             </div>
             <div className="flex flex-col">
               <span className="font-semibold text-sm leading-tight">AI 写作助手</span>
@@ -130,8 +125,8 @@ export function AIChatWindow() {
         <div className="flex-1 overflow-hidden">
           {!hasEnabledProvider ? (
             <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-violet-500/10 to-purple-600/10 flex items-center justify-center mb-4">
-                <Sparkles className="h-8 w-8 text-violet-500" />
+              <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
+                <Sparkles className="h-8 w-8 text-muted-foreground" />
               </div>
               <p className="text-foreground font-medium mb-1">
                 开始使用 AI 助手

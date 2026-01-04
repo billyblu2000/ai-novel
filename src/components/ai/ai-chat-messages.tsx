@@ -25,8 +25,8 @@ export function AIChatMessages() {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
         <div className="space-y-4">
-          <div className="h-12 w-12 mx-auto rounded-2xl bg-gradient-to-br from-violet-500/10 to-purple-600/10 flex items-center justify-center">
-            <Sparkles className="h-6 w-6 text-violet-500" />
+          <div className="h-12 w-12 mx-auto rounded-2xl bg-muted flex items-center justify-center">
+            <Sparkles className="h-6 w-6 text-muted-foreground" />
           </div>
           <div>
             <p className="text-foreground font-medium mb-1">有什么可以帮您？</p>
@@ -73,13 +73,13 @@ export function AIChatMessages() {
         {/* 加载中状态 */}
         {isLoading && !isStreaming && (
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 h-7 w-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-              <Sparkles className="h-3.5 w-3.5 text-white" />
+            <div className="flex-shrink-0 h-7 w-7 rounded-lg bg-foreground flex items-center justify-center">
+              <Sparkles className="h-3.5 w-3.5 text-background" />
             </div>
             <div className="flex items-center gap-1.5 py-1.5">
-              <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
-              <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
-              <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce" />
+              <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.3s]" />
+              <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.15s]" />
+              <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
             </div>
           </div>
         )}
@@ -112,15 +112,13 @@ function MessageBubble({ role, content, isStreaming }: MessageBubbleProps) {
       <div
         className={cn(
           "flex-shrink-0 h-7 w-7 rounded-lg flex items-center justify-center",
-          isUser
-            ? "bg-gradient-to-br from-slate-700 to-slate-800"
-            : "bg-gradient-to-br from-violet-500 to-purple-600"
+          isUser ? "bg-muted" : "bg-foreground"
         )}
       >
         {isUser ? (
-          <User className="h-3.5 w-3.5 text-white" />
+          <User className="h-3.5 w-3.5 text-muted-foreground" />
         ) : (
-          <Sparkles className="h-3.5 w-3.5 text-white" />
+          <Sparkles className="h-3.5 w-3.5 text-background" />
         )}
       </div>
 
@@ -135,7 +133,7 @@ function MessageBubble({ role, content, isStreaming }: MessageBubbleProps) {
           className={cn(
             "inline-block rounded-2xl px-3.5 py-2.5 text-sm",
             isUser
-              ? "bg-gradient-to-br from-slate-700 to-slate-800 text-white rounded-tr-md"
+              ? "bg-foreground text-background rounded-tr-md"
               : "bg-muted/70 text-foreground rounded-tl-md"
           )}
         >
@@ -143,7 +141,7 @@ function MessageBubble({ role, content, isStreaming }: MessageBubbleProps) {
             {content}
             {/* 流式输出光标 */}
             {isStreaming && (
-              <span className="inline-block w-0.5 h-4 ml-0.5 bg-violet-500 animate-pulse" />
+              <span className="inline-block w-0.5 h-4 ml-0.5 bg-foreground animate-pulse" />
             )}
           </div>
         </div>

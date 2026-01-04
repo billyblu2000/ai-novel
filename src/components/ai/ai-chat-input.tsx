@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { useAIStore } from "@/lib/stores/ai-store";
-import { ArrowUp, Square, Loader2, ChevronDown, Sparkles, Lock, Unlock } from "lucide-react";
+import { ArrowUp, Square, Loader2, ChevronDown, Lock, Unlock } from "lucide-react";
 import { getModelForFunction } from "@/lib/ai/settings";
 import type { AIFunction } from "@/lib/ai/types";
 import {
@@ -18,17 +18,16 @@ import {
 const AI_FUNCTIONS: {
   id: AIFunction;
   name: string;
-  icon: string;
   description: string;
   requiresSelection?: boolean;
 }[] = [
-  { id: "chat", name: "对话", icon: "💬", description: "自由对话" },
-  { id: "continue", name: "续写", icon: "✍️", description: "接续内容" },
-  { id: "plan", name: "规划", icon: "📋", description: "生成摘要" },
-  { id: "summarize", name: "总结", icon: "📝", description: "内容总结" },
-  { id: "polish", name: "润色", icon: "✨", description: "提升文笔", requiresSelection: true },
-  { id: "expand", name: "扩写", icon: "📖", description: "丰富细节", requiresSelection: true },
-  { id: "compress", name: "缩写", icon: "📄", description: "精简内容", requiresSelection: true },
+  { id: "chat", name: "对话", description: "自由对话" },
+  { id: "continue", name: "续写", description: "接续内容" },
+  { id: "plan", name: "规划", description: "生成摘要" },
+  { id: "summarize", name: "总结", description: "内容总结" },
+  { id: "polish", name: "润色", description: "提升文笔", requiresSelection: true },
+  { id: "expand", name: "扩写", description: "丰富细节", requiresSelection: true },
+  { id: "compress", name: "缩写", description: "精简内容", requiresSelection: true },
 ];
 
 /**
@@ -224,12 +223,11 @@ export function AIChatInput() {
                 "focus:outline-none focus:ring-2 focus:ring-violet-500/20"
               )}
             >
-              <span>{currentFunctionInfo?.icon}</span>
               <span className="text-muted-foreground">{currentFunctionInfo?.name}</span>
               <ChevronDown className="h-3 w-3 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-40">
+          <DropdownMenuContent align="start" className="w-36">
             {AI_FUNCTIONS.map((func) => {
               const disabled = func.requiresSelection && !isModifyEnabled;
               return (
@@ -238,11 +236,10 @@ export function AIChatInput() {
                   onClick={() => !disabled && setCurrentFunction(func.id)}
                   disabled={disabled}
                   className={cn(
-                    "gap-2 cursor-pointer",
-                    currentFunction === func.id && "bg-violet-500/10 text-violet-600"
+                    "cursor-pointer",
+                    currentFunction === func.id && "bg-accent"
                   )}
                 >
-                  <span>{func.icon}</span>
                   <span>{func.name}</span>
                   {disabled && (
                     <span className="ml-auto text-[10px] text-muted-foreground">需选中</span>
@@ -254,7 +251,7 @@ export function AIChatInput() {
             <DropdownMenuItem
               onClick={() => toggleJailbreak(!settings.jailbreakEnabled)}
               className={cn(
-                "gap-2 cursor-pointer",
+                "cursor-pointer",
                 settings.jailbreakEnabled && "bg-pink-500/10 text-pink-600"
               )}
             >
@@ -264,9 +261,6 @@ export function AIChatInput() {
                 <Lock className="h-3.5 w-3.5" />
               )}
               <span>创意模式</span>
-              {settings.jailbreakEnabled && (
-                <Sparkles className="ml-auto h-3 w-3 text-pink-500" />
-              )}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -335,8 +329,7 @@ export function AIChatInput() {
           Enter 发送 · Shift+Enter 换行
         </span>
         {settings.jailbreakEnabled && (
-          <span className="text-[10px] text-pink-500/80 flex items-center gap-1">
-            <Sparkles className="h-2.5 w-2.5" />
+          <span className="text-[10px] text-pink-500/80">
             创意模式
           </span>
         )}
