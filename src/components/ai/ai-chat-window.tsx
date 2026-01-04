@@ -91,7 +91,7 @@ export function AIChatWindow() {
               <span className="font-semibold text-sm leading-tight">AI 写作助手</span>
               {settings.jailbreakEnabled && (
                 <span className="text-[10px] text-pink-500 font-medium leading-tight">
-                  创意模式已开启
+                  无限制模式已开启
                 </span>
               )}
             </div>

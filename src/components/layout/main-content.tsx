@@ -12,11 +12,11 @@ export function MainContent({ children, className }: MainContentProps) {
   return (
     <main
       className={cn(
-        "flex-1 overflow-auto bg-background transition-all duration-250 ease-in-out",
+        "flex-1 overflow-hidden bg-background transition-all duration-250 ease-in-out",
         className
       )}
     >
-      <div className="h-full w-full">
+      <div className="h-full w-full overflow-auto">
         {children}
       </div>
     </main>

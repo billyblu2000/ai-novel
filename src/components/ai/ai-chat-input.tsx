@@ -260,7 +260,7 @@ export function AIChatInput() {
               ) : (
                 <Lock className="h-3.5 w-3.5" />
               )}
-              <span>创意模式</span>
+              <span>无限制模式</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -273,14 +273,14 @@ export function AIChatInput() {
           onKeyDown={handleKeyDown}
           placeholder={
             settings.jailbreakEnabled
-              ? "创意模式：尽情发挥想象力..."
+              ? "无限制模式：尽情发挥想象力..."
               : "输入消息..."
           }
           className={cn(
-            "flex-1 bg-transparent border-0 resize-none",
+            "flex-1 bg-transparent border-0 resize-none overflow-hidden",
             "text-sm leading-6 placeholder:text-muted-foreground/60",
             "focus:outline-none focus:ring-0",
-            "min-h-[24px] max-h-[120px] py-1.5"
+            "min-h-[24px] max-h-[120px] py-1"
           )}
           rows={1}
           disabled={isLoading}
@@ -330,7 +330,7 @@ export function AIChatInput() {
         </span>
         {settings.jailbreakEnabled && (
           <span className="text-[10px] text-pink-500/80">
-            创意模式
+            无限制模式
           </span>
         )}
       </div>

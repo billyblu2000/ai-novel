@@ -58,7 +58,7 @@ export function AppShell({
   }, [setLeftSidebarOpen, setRightSidebarOpen]);
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
+    <div className="flex h-full w-full overflow-hidden bg-background">
       {/* 左侧边栏 */}
       {showLeftSidebar && (
         <LeftSidebar
