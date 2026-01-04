@@ -86,6 +86,10 @@ export function EditorLayout({ project, user, profile }: EditorLayoutProps) {
         projectTitle={project.title}
         user={user}
         profile={profile}
+        leftSidebarContent={
+          <FileTree projectId={project.id} onNodeSelect={handleNodeSelect} />
+        }
+        rightSidebarContent={<EntitySidebar projectId={project.id} />}
         actions={
           <Button variant="ghost" size="sm" onClick={handleGoOverview}>
             项目概览

@@ -1,10 +1,9 @@
 "use client";
 
-import { useUIStore } from "@/lib/stores";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { PanelLeft, PanelRight } from "lucide-react";
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, cloneElement, isValidElement, ReactElement } from "react";
 
 interface MobileNavProps {
   leftSidebarContent?: ReactNode;
@@ -14,6 +13,25 @@ interface MobileNavProps {
 export function MobileNav({ leftSidebarContent, rightSidebarContent }: MobileNavProps) {
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
+
+  // Wrap content to close sheet on node selection
+  const wrapWithCloseHandler = (content: ReactNode, closeSheet: () => void): ReactNode => {
+    if (!isValidElement(content)) return content;
+    
+    const element = content as ReactElement<{ onNodeSelect?: (node: unknown) => void }>;
+    const originalOnNodeSelect = element.props.onNodeSelect;
+    
+    if (originalOnNodeSelect) {
+      return cloneElement(element, {
+        onNodeSelect: (node: unknown) => {
+          originalOnNodeSelect(node);
+          closeSheet();
+        },
+      });
+    }
+    
+    return content;
+  };
 
   return (
     <div className="flex md:hidden items-center gap-2">
@@ -27,7 +45,7 @@ export function MobileNav({ leftSidebarContent, rightSidebarContent }: MobileNav
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-[280px] p-0">
-            {leftSidebarContent}
+            {wrapWithCloseHandler(leftSidebarContent, () => setLeftOpen(false))}
           </SheetContent>
         </Sheet>
       )}
