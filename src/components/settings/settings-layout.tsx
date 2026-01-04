@@ -4,8 +4,7 @@ import { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Bot, User, Palette, ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Bot, User, Palette } from "lucide-react";
 
 interface SettingsLayoutProps {
   children: ReactNode;
@@ -39,19 +38,10 @@ export function SettingsLayout({ children }: SettingsLayoutProps) {
   const currentTab = searchParams.get("tab") || "ai";
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)]">
+    <div className="flex flex-1 overflow-hidden">
       {/* 左侧导航 - 桌面端（固定） */}
-      <aside className="hidden md:flex w-56 flex-col border-r bg-muted/30 flex-shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
-        <div className="p-4">
-          <Button variant="ghost" size="sm" asChild className="mb-4">
-            <Link href="/projects">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              返回
-            </Link>
-          </Button>
-          <h2 className="text-lg font-semibold">设置</h2>
-        </div>
-        <nav className="flex-1 px-2">
+      <aside className="hidden md:flex w-56 flex-col border-r bg-muted/30 flex-shrink-0">
+        <nav className="flex-1 px-2 py-4">
           {SETTINGS_CATEGORIES.map((category) => {
             const Icon = category.icon;
             const isActive = currentTab === category.id;
@@ -87,11 +77,6 @@ export function SettingsLayout({ children }: SettingsLayoutProps) {
       {/* 移动端顶部 Tab */}
       <div className="md:hidden fixed top-14 left-0 right-0 z-40 bg-background border-b">
         <div className="flex items-center gap-2 px-4 py-2 overflow-x-auto">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/projects">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
           {SETTINGS_CATEGORIES.map((category) => {
             const Icon = category.icon;
             const isActive = currentTab === category.id;

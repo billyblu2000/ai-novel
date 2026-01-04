@@ -17,9 +17,9 @@ export class SiliconFlowProvider extends OpenAICompatibleProvider {
    */
   static RECOMMENDED_MODELS: AIModel[] = [
     {
-      id: "Pro/deepseek-ai/DeepSeek-V3",
-      name: "DeepSeek V3 (Pro)",
-      description: "DeepSeek V3 Pro 版本，高质量输出",
+      id: "Pro/deepseek-ai/DeepSeek-V3.2",
+      name: "DeepSeek V3.2",
+      description: "DeepSeek V3.2 版本，高质量输出",
       contextLength: 65536,
     },
   ];
@@ -51,6 +51,6 @@ export class SiliconFlowProvider extends OpenAICompatibleProvider {
    * 获取默认模型
    */
   static getDefaultModel(): string {
-    return "Pro/deepseek-ai/DeepSeek-V3";
+    return "Pro/deepseek-ai/DeepSeek-V3.2";
   }
 }
