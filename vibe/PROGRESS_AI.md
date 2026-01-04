@@ -162,7 +162,7 @@
 ### 3.7 集成到主布局
 - [x] 在 `EditorLayout` 中添加聊天浮窗
 - [x] 确保浮窗在编辑器页面可用
-- [ ] 实现全局快捷键呼出（可选，如 `Ctrl+Shift+A`）（后续优化）
+- [x] 实现全局快捷键呼出（`Ctrl+Shift+A`）
 
 ---
 
@@ -179,11 +179,11 @@
 - [ ] 实现 Prompt 变量替换工具
 
 ### 4.2 右键菜单
-- [ ] 创建 `src/components/ai/ai-context-menu.tsx`
-- [ ] 集成到 Tiptap 编辑器（或全局右键）
-- [ ] 实现选中文字检测
-- [ ] 实现菜单项：润色/扩写/缩写
-- [ ] 点击后自动设置功能 + 上下文
+- [x] 创建 `src/components/ai/ai-context-menu.tsx`
+- [x] 集成到 Tiptap 编辑器
+- [x] 实现选中文字检测
+- [x] 实现菜单项：润色/扩写/缩写
+- [x] 点击后自动设置功能 + 上下文
 
 ### 4.3 结果卡片
 - [ ] 创建 `src/components/ai/ai-result-card.tsx`
@@ -322,8 +322,8 @@ src/
 │   │   ├── ai-function-select.tsx     ← Phase 3.4 ✅
 │   │   ├── ai-context-tags.tsx        ← Phase 3.5 ✅
 │   │   ├── ai-context-selector.tsx    ← Phase 3.5 ✅
+│   │   ├── ai-context-menu.tsx        ← Phase 4.2 ✅
 │   │   ├── ai-result-card.tsx         ← Phase 4.3
-│   │   ├── ai-context-menu.tsx        ← Phase 4.2
 │   │   └── index.ts                   ← Phase 3 ✅
 │   │
 │   └── settings/
@@ -363,7 +363,7 @@ src/
 |------|----------|-------|
 | `components/layout/app-shell.tsx` | 添加聊天浮窗 | 3.6 |
 | `components/auth/user-menu.tsx` | 添加设置页面入口 | 2.3 ✅ |
-| `components/editor/entity-aware-editor.tsx` | 集成右键菜单 | 4.2 |
+| `components/editor/entity-aware-editor.tsx` | 集成右键菜单 | 4.2 ✅ |
 | `lib/stores/index.ts` | 导出 AI Store | 2.2 ✅ |
 | `types/index.ts` | 添加 AI 相关类型（可选） | 1.1 |
 

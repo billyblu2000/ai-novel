@@ -10,6 +10,7 @@ import { Entity } from "@/types";
 import { EntityHighlight } from "@/lib/tiptap-entity-highlight";
 import { EntityHoverCard } from "@/components/entities/entity-hover-card";
 import { EntityContextMenu } from "@/components/entities/entity-context-menu";
+import { AIContextMenu } from "@/components/ai/ai-context-menu";
 
 interface EntityAwareEditorProps {
   content: string;
@@ -48,9 +49,14 @@ export function EntityAwareEditor({
   const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Context menu state
+  // Context menu state (Entity)
   const [contextMenuEntity, setContextMenuEntity] = useState<Entity | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+
+  // AI Context menu state (Text selection)
+  const [aiMenuVisible, setAiMenuVisible] = useState(false);
+  const [aiMenuPosition, setAiMenuPosition] = useState({ x: 0, y: 0 });
+  const [aiMenuSelectedText, setAiMenuSelectedText] = useState("");
 
   const handleEntityHover = useCallback(
     (entity: Entity | null, rect: DOMRect | null) => {
@@ -96,6 +102,30 @@ export function EntityAwareEditor({
       onViewEntityDetails?.(entity);
     },
     [onViewEntityDetails]
+  );
+
+  // Handle right-click for AI context menu (text selection)
+  const handleEditorContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      // 获取选中的文字
+      const selection = window.getSelection();
+      const selectedText = selection?.toString().trim();
+
+      // 如果有选中文字且不是在实体上右键，显示 AI 菜单
+      if (selectedText && selectedText.length > 0) {
+        // 检查是否在实体高亮上右键（实体有自己的右键菜单）
+        const target = e.target as HTMLElement;
+        if (target.closest("[data-entity-id]")) {
+          return; // 让实体右键菜单处理
+        }
+
+        e.preventDefault();
+        setAiMenuSelectedText(selectedText);
+        setAiMenuPosition({ x: e.clientX, y: e.clientY });
+        setAiMenuVisible(true);
+      }
+    },
+    []
   );
 
   const editor = useEditor({
@@ -221,6 +251,7 @@ export function EntityAwareEditor({
   useEffect(() => {
     const handleClick = () => {
       setContextMenuEntity(null);
+      setAiMenuVisible(false);
     };
     document.addEventListener("click", handleClick);
     return () => document.removeEventListener("click", handleClick);
@@ -231,7 +262,7 @@ export function EntityAwareEditor({
   const wordCount = editor?.storage.characterCount?.words() || 0;
 
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn("relative", className)} onContextMenu={handleEditorContextMenu}>
       <EditorContent editor={editor} />
       {showWordCount && (
         <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
@@ -257,6 +288,16 @@ export function EntityAwareEditor({
           onIgnore={handleIgnoreEntity}
           onViewDetails={handleViewDetails}
           onClose={() => setContextMenuEntity(null)}
+        />
+      )}
+
+      {/* AI Context Menu */}
+      {aiMenuVisible && aiMenuSelectedText && (
+        <AIContextMenu
+          selectedText={aiMenuSelectedText}
+          position={aiMenuPosition}
+          visible={true}
+          onClose={() => setAiMenuVisible(false)}
         />
       )}
     </div>

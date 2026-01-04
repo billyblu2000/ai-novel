@@ -40,6 +40,19 @@ export function AIChatWindow({ nodes = [], entities = [] }: AIChatWindowProps) {
     initializeAIStore();
   }, []);
 
+  // 全局快捷键 Ctrl+Shift+A 呼出/收起 AI 浮窗
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        toggleChatWindow();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [toggleChatWindow]);
+
   // 检查是否有可用的 Provider
   const hasEnabledProvider = Object.values(settings.providers).some(
     (p) => p.enabled && p.apiKey
