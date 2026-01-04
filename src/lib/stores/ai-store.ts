@@ -55,6 +55,19 @@ interface AIState {
   /** 是否有未读消息 */
   hasUnreadMessage: boolean;
 
+  // ========== Debug 状态 ==========
+  /** Debug 模式是否开启 */
+  debugMode: boolean;
+  /** 最近一次请求的 Debug 信息 */
+  lastRequestDebug: {
+    timestamp: number;
+    function: AIFunction;
+    messages: ChatMessage[];
+    context?: unknown;
+    provider: string;
+    model: string;
+  } | null;
+
   // ========== Actions ==========
   // 设置相关
   loadSettings: () => void;
@@ -89,6 +102,10 @@ interface AIState {
   // 浮窗状态
   toggleChatWindow: (open?: boolean) => void;
   setHasUnreadMessage: (hasUnread: boolean) => void;
+
+  // Debug 状态
+  toggleDebugMode: (enabled?: boolean) => void;
+  setLastRequestDebug: (debug: AIState["lastRequestDebug"]) => void;
 }
 
 /**
@@ -111,6 +128,9 @@ export const useAIStore = create<AIState>((set, get) => ({
 
   isChatWindowOpen: false,
   hasUnreadMessage: false,
+
+  debugMode: process.env.NODE_ENV === "development",
+  lastRequestDebug: null,
 
   // ========== Actions ==========
 
@@ -239,6 +259,18 @@ export const useAIStore = create<AIState>((set, get) => ({
   // 设置未读消息状态
   setHasUnreadMessage: (hasUnread) => {
     set({ hasUnreadMessage: hasUnread });
+  },
+
+  // 切换 Debug 模式
+  toggleDebugMode: (enabled) => {
+    set((state) => ({
+      debugMode: enabled !== undefined ? enabled : !state.debugMode,
+    }));
+  },
+
+  // 设置最近一次请求的 Debug 信息
+  setLastRequestDebug: (debug) => {
+    set({ lastRequestDebug: debug });
   },
 }));
 

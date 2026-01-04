@@ -158,6 +158,19 @@ export async function POST(request: NextRequest) {
       const readableStream = new ReadableStream({
         async start(controller) {
           try {
+            // 首先发送 debug 信息（包含实际发送给模型的完整消息）
+            const debugData = JSON.stringify({
+              debug: {
+                timestamp: Date.now(),
+                function: aiFunction,
+                messages: finalMessages,
+                context: context,
+                provider: providerConfig.id,
+                model: providerConfig.model,
+              },
+            });
+            controller.enqueue(encoder.encode(`data: ${debugData}\n\n`));
+
             const generator = provider.chat(config, params);
 
             for await (const chunk of generator) {

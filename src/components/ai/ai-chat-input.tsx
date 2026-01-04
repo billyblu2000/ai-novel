@@ -54,6 +54,8 @@ export function AIChatInput() {
     setStreamingContent,
     appendStreamingContent,
     setError,
+    debugMode,
+    setLastRequestDebug,
   } = useAIStore();
 
   const currentFunctionInfo = AI_FUNCTIONS.find((f) => f.id === currentFunction);
@@ -90,26 +92,30 @@ export function AIChatInput() {
         previousSummaries: [],
       };
 
+      const requestMessages = [
+        ...useAIStore.getState().chatHistory,
+        { role: "user" as const, content: trimmedInput },
+      ];
+
+      const requestBody = {
+        function: currentFunction,
+        provider: {
+          id: modelConfig.provider,
+          apiKey: modelConfig.apiKey,
+          baseUrl: modelConfig.baseUrl,
+          model: modelConfig.model,
+        },
+        messages: requestMessages,
+        jailbreak: settings.jailbreakEnabled,
+        context: userContexts.length > 0 ? context : undefined,
+        selectedText: selectedText || undefined,
+        stream: true,
+      };
+
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          function: currentFunction,
-          provider: {
-            id: modelConfig.provider,
-            apiKey: modelConfig.apiKey,
-            baseUrl: modelConfig.baseUrl,
-            model: modelConfig.model,
-          },
-          messages: [
-            ...useAIStore.getState().chatHistory,
-            { role: "user", content: trimmedInput },
-          ],
-          jailbreak: settings.jailbreakEnabled,
-          context: userContexts.length > 0 ? context : undefined,
-          selectedText: selectedText || undefined,
-          stream: true,
-        }),
+        body: JSON.stringify(requestBody),
         signal: abortControllerRef.current.signal,
       });
 
@@ -145,6 +151,11 @@ export function AIChatInput() {
             if (data === "[DONE]") continue;
             try {
               const parsed = JSON.parse(data);
+              // 处理 debug 信息
+              if (parsed.debug && debugMode) {
+                setLastRequestDebug(parsed.debug);
+              }
+              // 处理内容
               if (parsed.content) {
                 appendStreamingContent(parsed.content);
               }
@@ -173,6 +184,7 @@ export function AIChatInput() {
     userContexts,
     selectedText,
     settings.jailbreakEnabled,
+    debugMode,
     isLoading,
     isStreaming,
     addMessage,

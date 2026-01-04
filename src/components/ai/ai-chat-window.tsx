@@ -9,6 +9,7 @@ import { AIChatMessages } from "./ai-chat-messages";
 import { AIChatInput } from "./ai-chat-input";
 import { AIContextTags } from "./ai-context-tags";
 import { AIContextSelector } from "./ai-context-selector";
+import { AIDebugPanel, AIDebugToggle } from "./ai-debug-panel";
 import Link from "next/link";
 import type { Node, Entity } from "@/types";
 
@@ -134,6 +135,7 @@ export function AIChatWindow({ nodes = [], entities = [] }: AIChatWindowProps) {
               </div>
             </div>
             <div className="flex items-center gap-0.5">
+              <AIDebugToggle />
               <Button
                 variant="ghost"
                 size="icon"
@@ -191,6 +193,9 @@ export function AIChatWindow({ nodes = [], entities = [] }: AIChatWindowProps) {
               <AIChatInput />
             </div>
           )}
+
+          {/* Debug 面板 */}
+          <AIDebugPanel />
         </div>
       </div>
 
