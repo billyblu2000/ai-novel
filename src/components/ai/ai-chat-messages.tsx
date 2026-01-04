@@ -70,16 +70,21 @@ export function AIChatMessages() {
           />
         )}
 
-        {/* 加载中状态 */}
+        {/* 加载中状态 - AI思考动画 */}
         {isLoading && !isStreaming && (
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0 h-7 w-7 rounded-lg bg-foreground flex items-center justify-center">
-              <Sparkles className="h-3.5 w-3.5 text-background" />
+              <Sparkles className="h-3.5 w-3.5 text-background animate-pulse" />
             </div>
-            <div className="flex items-center gap-1.5 py-1.5">
-              <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.3s]" />
-              <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.15s]" />
-              <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
+            <div className="bg-muted/70 rounded-2xl rounded-tl-md px-3.5 py-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">思考中</span>
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-violet-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                  <span className="w-1.5 h-1.5 bg-violet-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                  <span className="w-1.5 h-1.5 bg-violet-500 rounded-full animate-bounce" />
+                </div>
+              </div>
             </div>
           </div>
         )}

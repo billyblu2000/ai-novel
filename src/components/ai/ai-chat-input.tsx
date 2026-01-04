@@ -76,7 +76,7 @@ export function AIChatInput() {
 
     // 重置 textarea 高度
     if (textareaRef.current) {
-      textareaRef.current.style.height = "24px";
+      textareaRef.current.style.height = "32px";
     }
 
     try {
@@ -189,7 +189,7 @@ export function AIChatInput() {
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     const textarea = e.target;
-    textarea.style.height = "24px";
+    textarea.style.height = "32px";
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
   };
 
@@ -209,13 +209,13 @@ export function AIChatInput() {
       )}
     >
       {/* 输入区域 */}
-      <div className="flex items-end gap-2 p-2">
+      <div className="flex items-center gap-2 p-2">
         {/* 功能选择器 */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl",
+                "flex items-center gap-1.5 px-2.5 h-8 rounded-xl",
                 "text-xs font-medium",
                 "bg-background/80 border border-border/50",
                 "hover:bg-background hover:border-border",
@@ -278,9 +278,9 @@ export function AIChatInput() {
           }
           className={cn(
             "flex-1 bg-transparent border-0 resize-none overflow-hidden",
-            "text-sm leading-6 placeholder:text-muted-foreground/60",
+            "text-sm leading-8 placeholder:text-muted-foreground/60",
             "focus:outline-none focus:ring-0",
-            "min-h-[24px] max-h-[120px] py-1"
+            "h-8 max-h-[120px]"
           )}
           rows={1}
           disabled={isLoading}
