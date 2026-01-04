@@ -8,6 +8,7 @@ import { FileTree } from "@/components/binder";
 import { Dashboard } from "@/components/dashboard";
 import { NodeEditor } from "@/components/editor";
 import { EntitySidebar } from "@/components/entities";
+import { AIChatWindow } from "@/components/ai";
 import { useEditorStore } from "@/lib/stores";
 import { useNodes } from "@/lib/hooks";
 import { Project } from "@/types";
@@ -118,6 +119,9 @@ export function EditorLayout({ project, user, profile }: EditorLayoutProps) {
           )}
         </AppShell>
       </div>
+      
+      {/* AI 聊天浮窗 */}
+      <AIChatWindow />
     </div>
   );
 }

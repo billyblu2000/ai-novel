@@ -234,3 +234,22 @@ export function getProviderForFunction(
     baseUrl: providerConfig.baseUrl,
   };
 }
+
+/**
+ * 获取指定功能的模型配置（从 localStorage 加载）
+ * 用于组件中直接获取配置
+ */
+export function getModelForFunction(
+  func: AIFunction
+): { provider: string; model: string; apiKey: string; baseUrl?: string } | null {
+  const settings = loadAISettings();
+  const result = getProviderForFunction(settings, func);
+  if (!result) return null;
+  
+  return {
+    provider: result.providerId,
+    model: result.model,
+    apiKey: result.apiKey,
+    baseUrl: result.baseUrl,
+  };
+}
