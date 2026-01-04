@@ -71,7 +71,8 @@ export function AIChatMessages() {
         )}
 
         {/* 加载中状态 - AI思考动画 */}
-        {isLoading && !isStreaming && (
+        {/* 显示条件：正在加载 或 (正在流式输出但内容为空) */}
+        {(isLoading || (isStreaming && !streamingContent)) && (
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0 h-7 w-7 rounded-lg bg-foreground flex items-center justify-center">
               <Sparkles className="h-3.5 w-3.5 text-background animate-pulse" />
