@@ -67,18 +67,19 @@ export function AIChatWindow() {
         "w-[420px] h-[540px]",
         "flex flex-col",
         "animate-in slide-in-from-bottom-4 fade-in duration-300",
-        "rounded-2xl overflow-hidden",
         // 破限模式特效边框
         settings.jailbreakEnabled
-          ? "p-[2px] bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400"
-          : "shadow-2xl shadow-black/20"
+          ? "p-[2px] bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 rounded-[18px]"
+          : "shadow-2xl shadow-black/20 rounded-2xl"
       )}
     >
       {/* 内容容器 */}
       <div
         className={cn(
-          "flex flex-col flex-1 bg-background overflow-hidden",
-          settings.jailbreakEnabled ? "rounded-[14px]" : "rounded-2xl border border-border/50"
+          "flex flex-col flex-1 bg-background",
+          settings.jailbreakEnabled 
+            ? "rounded-[16px] overflow-hidden" 
+            : "rounded-2xl overflow-hidden border border-border/50"
         )}
       >
         {/* 标题栏 - 毛玻璃效果 */}
