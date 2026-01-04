@@ -198,24 +198,7 @@
 | **Interaction** | Hover 时显示 Entity 卡片（延迟 300ms）。支持右键"忽略此匹配" |
 | **忽略存储** | 存入当前节点的 `metadata.ignored_entities` 数组 |
 
-#### AI 助手 (Floating Menu)
-
-| 触发方式 | 行为 |
-|----------|------|
-| **选中文字** | 弹出菜单 → 润色 / 扩写 / 缩写 / 翻译 |
-| **`/` 命令** | 呼出 AI Command Palette |
-
-#### AI 上下文构建 (Context Building)
-
-> 此部分为 RAG 核心，后续深度优化
-
-| 组成部分 | Token 预算 | 说明 |
-|----------|------------|------|
-| **当前段落** | ~500 | 光标所在段落 |
-| **前文摘要** | ~300 | 前 N 个场景的 summary |
-| **关联实体** | ~200 | 当前场景 Mentions 频次 Top 5 的实体 description |
-| **用户指令** | ~200 | 用户输入的 prompt |
-| **Total** | ~1200 | 预留 buffer 给模型输出 |
+> **AI 功能**：详见 [PRD_AI.md](./PRD_AI.md)
 
 ### 4.2 目录与大纲联动 (Binder & Outline)
 
@@ -232,13 +215,6 @@
 |----------|----------|
 | **FILE** | Tiptap 编辑器，加载正文 |
 | **FOLDER** | 大纲编辑器（编辑 `outline` 字段） + 子节点卡片列表 |
-
-#### AI 功能
-
-| 功能 | 说明 |
-|------|------|
-| **Generate Scenes** | 读取 FOLDER 的 `outline` → AI 生成子 FILE 节点（标题+初始内容） |
-| **Summarize Scene** | 读取单个 FILE 的 `content` → AI 生成该场景的 `summary` |
 
 ### 4.3 动态时间线 (Timeline View)
 
@@ -609,238 +585,15 @@ src/
 
 ### 9.2 AI 端点
 
-> 使用 Vercel AI SDK 的 streaming 响应
+> AI 功能详见 [PRD_AI.md](./PRD_AI.md)，此处仅列出端点概览
 
 | Method | Endpoint | 说明 |
 |--------|----------|------|
-| `POST` | `/api/ai/polish` | 润色选中文字 |
-| `POST` | `/api/ai/expand` | 扩写选中文字 |
-| `POST` | `/api/ai/compress` | 缩写选中文字 |
-| `POST` | `/api/ai/translate` | 翻译选中文字 |
-| `POST` | `/api/ai/generate-scenes` | 根据大纲生成场景 |
-| `POST` | `/api/ai/summarize` | 生成场景摘要 |
-| `POST` | `/api/ai/chat` | 自由对话（带上下文） |
-
-### 9.3 请求/响应格式
-
-#### 通用响应结构
-
-```typescript
-// 成功响应
-interface ApiResponse<T> {
-  success: true
-  data: T
-}
-
-// 错误响应
-interface ApiError {
-  success: false
-  error: {
-    code: string      // 如 "NOT_FOUND", "UNAUTHORIZED"
-    message: string   // 用户友好的错误信息
-  }
-}
-```
-
-#### AI 请求示例
-
-```typescript
-// POST /api/ai/expand
-interface ExpandRequest {
-  text: string              // 选中的文字
-  context: {
-    before: string          // 前文（~500 tokens）
-    entities: EntityBrief[] // 关联实体摘要
-  }
-  style?: 'narrative' | 'dialogue' | 'description'
-}
-
-interface EntityBrief {
-  name: string
-  type: 'CHARACTER' | 'LOCATION' | 'ITEM'
-  description: string       // 截断到 100 字
-}
-```
+| `POST` | `/api/ai/chat` | 统一 AI 请求入口（润色/扩写/缩写/续写/规划/总结/聊天） |
 
 ---
 
-## 10. AI Prompt 模板 (AI Prompt Templates)
-
-> 所有 Prompt 存储在 `src/lib/ai/prompts/` 目录下
-
-### 10.1 System Prompt (基础人设)
-
-```markdown
-你是一位专业的小说写作助手，擅长中文长篇小说创作。你的任务是协助作者完善他们的作品。
-
-## 写作原则
-- 保持作者的原有风格和语气
-- 注重细节描写和情感表达
-- 对话要符合角色性格
-- 避免说教和陈词滥调
-
-## 世界观信息
-以下是当前故事中的关键设定，请在创作时保持一致：
-
-{{entities}}
-
-## 当前上下文
-{{context}}
-```
-
-### 10.2 润色 (Polish)
-
-```markdown
-请润色以下文字，提升文学性和可读性。
-
-## 要求
-- 保持原意不变
-- 优化句式结构
-- 增强表达力度
-- 修正语法错误
-- 不要大幅增加或删减内容
-
-## 原文
-{{selected_text}}
-
-## 润色后
-```
-
-### 10.3 扩写 (Expand)
-
-```markdown
-请扩写以下文字，丰富细节和描写。
-
-## 要求
-- 扩展到原文的 2-3 倍长度
-- 增加环境描写、心理活动或感官细节
-- 保持与前后文的连贯性
-- 符合当前场景的氛围
-
-## 前文摘要
-{{context_before}}
-
-## 需要扩写的内容
-{{selected_text}}
-
-## 扩写后
-```
-
-### 10.4 缩写 (Compress)
-
-```markdown
-请精简以下文字，保留核心信息。
-
-## 要求
-- 压缩到原文的 1/2 左右
-- 保留关键情节和信息
-- 删除冗余描写
-- 保持语句流畅
-
-## 原文
-{{selected_text}}
-
-## 精简后
-```
-
-### 10.5 翻译 (Translate)
-
-```markdown
-请将以下文字翻译为{{target_language}}。
-
-## 要求
-- 保持文学性，不要机械直译
-- 保留原文的情感和语气
-- 人名、地名保持原文或音译
-
-## 原文
-{{selected_text}}
-
-## 译文
-```
-
-### 10.6 生成场景 (Generate Scenes)
-
-```markdown
-根据以下章节大纲，生成具体的场景列表。
-
-## 章节大纲
-{{outline}}
-
-## 已有的世界观设定
-{{entities}}
-
-## 要求
-- 每个场景包含：标题（10字以内）、概要（50字以内）、预估字数
-- 场景数量：3-7 个
-- 场景之间要有逻辑递进
-- 标注每个场景涉及的主要角色
-
-## 输出格式（JSON）
-```json
-{
-  "scenes": [
-    {
-      "title": "场景标题",
-      "summary": "场景概要描述",
-      "estimated_words": 1500,
-      "characters": ["角色A", "角色B"]
-    }
-  ]
-}
-```
-```
-
-### 10.7 生成摘要 (Summarize)
-
-```markdown
-请为以下场景内容生成一段简洁的摘要。
-
-## 要求
-- 长度：50-100 字
-- 概括核心事件和冲突
-- 提及主要角色
-- 不要剧透结局细节
-
-## 场景内容
-{{content}}
-
-## 摘要
-```
-
-### 10.8 自由对话 (Chat)
-
-```markdown
-作者正在创作一部小说，现在有一个问题想请教你。
-
-## 当前写作上下文
-{{context}}
-
-## 涉及的角色/设定
-{{entities}}
-
-## 作者的问题
-{{user_message}}
-
-请基于以上信息，给出专业的写作建议。
-```
-
-### 10.9 Prompt 变量说明
-
-| 变量 | 来源 | 说明 |
-|------|------|------|
-| `{{selected_text}}` | 编辑器选中内容 | 用户选中的文字 |
-| `{{context_before}}` | 光标前 500 tokens | 前文上下文 |
-| `{{context}}` | 动态构建 | 包含前文摘要 + 当前段落 |
-| `{{entities}}` | Mentions Top 5 | 关联实体的 name + description |
-| `{{outline}}` | FOLDER.outline | 章节大纲 |
-| `{{content}}` | FILE.content | 场景正文 |
-| `{{target_language}}` | 用户选择 | 目标语言（中文/英文/日文） |
-| `{{user_message}}` | 用户输入 | 自由对话时的用户消息 |
-
----
-
-## 11. 后续规划 (Future Roadmap)
+## 10. 后续规划 (Future Roadmap)
 
 > 以下功能不在 MVP 范围内，后期迭代
 
@@ -848,7 +601,7 @@ interface EntityBrief {
 |------|--------|------|
 | **全文搜索** | P1 | 使用 Supabase Full-Text Search |
 | **导出功能** | P1 | 支持 Markdown / Word / ePub |
-| **AI 深度优化** | P1 | RAG 检索优化、长文本摘要、一致性检查 |
+| **AI 功能** | P1 | 详见 [PRD_AI.md](./PRD_AI.md) |
 | **移动端适配** | P2 | PWA 支持 |
 | **插件系统** | P3 | 允许用户自定义 AI Prompt 模板 |
 
