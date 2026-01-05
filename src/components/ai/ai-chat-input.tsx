@@ -14,8 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// AI 功能定义
-const AI_FUNCTIONS: {
+// AI 功能定义（完整列表，用于显示当前功能名称）
+const ALL_AI_FUNCTIONS: {
   id: AIFunction;
   name: string;
   description: string;
@@ -29,6 +29,9 @@ const AI_FUNCTIONS: {
   { id: "expand", name: "扩写", description: "丰富细节", requiresSelection: true },
   { id: "compress", name: "缩写", description: "精简内容", requiresSelection: true },
 ];
+
+// 下拉菜单中可选的功能（不包含修改功能，修改功能只能通过右键菜单进入）
+const SELECTABLE_FUNCTIONS = ALL_AI_FUNCTIONS.filter((f) => !f.requiresSelection);
 
 /**
  * AI 聊天输入组件
@@ -59,8 +62,8 @@ export function AIChatInput() {
     setLastRequestDebug,
   } = useAIStore();
 
-  const currentFunctionInfo = AI_FUNCTIONS.find((f) => f.id === currentFunction);
-  const isModifyEnabled = !!selectedText;
+  const currentFunctionInfo = ALL_AI_FUNCTIONS.find((f) => f.id === currentFunction);
+  const isModifyFunction = currentFunctionInfo?.requiresSelection;
 
   // 发送消息
   const handleSend = useCallback(async () => {
@@ -253,25 +256,28 @@ export function AIChatInput() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-36">
-            {AI_FUNCTIONS.map((func) => {
-              const disabled = func.requiresSelection && !isModifyEnabled;
-              return (
-                <DropdownMenuItem
-                  key={func.id}
-                  onClick={() => !disabled && setCurrentFunction(func.id)}
-                  disabled={disabled}
-                  className={cn(
-                    "cursor-pointer",
-                    currentFunction === func.id && "bg-accent"
-                  )}
-                >
-                  <span>{func.name}</span>
-                  {disabled && (
-                    <span className="ml-auto text-[10px] text-muted-foreground">需选中</span>
-                  )}
+            {SELECTABLE_FUNCTIONS.map((func) => (
+              <DropdownMenuItem
+                key={func.id}
+                onClick={() => setCurrentFunction(func.id)}
+                className={cn(
+                  "cursor-pointer",
+                  currentFunction === func.id && "bg-accent"
+                )}
+              >
+                <span>{func.name}</span>
+              </DropdownMenuItem>
+            ))}
+            {/* 如果当前是修改功能，显示一个分隔和当前功能（不可点击切换） */}
+            {isModifyFunction && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem disabled className="opacity-70">
+                  <span>{currentFunctionInfo?.name}</span>
+                  <span className="ml-auto text-[10px] text-muted-foreground">右键选中</span>
                 </DropdownMenuItem>
-              );
-            })}
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => toggleJailbreak(!settings.jailbreakEnabled)}
