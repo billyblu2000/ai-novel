@@ -115,8 +115,8 @@ export function useAIRequest() {
         return { success: false, error };
       }
 
-      // 对于普通聊天，添加用户消息到历史
-      if (!isModify && !isPlan && userInput?.trim()) {
+      // 对于普通聊天和规划功能，添加用户消息到历史（修改功能不添加）
+      if (!isModify && userInput?.trim()) {
         addMessage({ role: "user", content: userInput.trim() });
       }
 

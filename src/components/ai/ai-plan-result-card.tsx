@@ -29,7 +29,7 @@ interface AIPlanResultCardProps {
  */
 export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
   const { clearPlanResult, setCurrentFunction, clearUserContexts } = useAIStore();
-  const { createNodeAsync, isCreating } = useNodes(projectId);
+  const { nodes, createNodeAsync, isCreating } = useNodes(projectId);
   const [copied, setCopied] = useState(false);
   const [applying, setApplying] = useState(false);
   const [expanded, setExpanded] = useState(true);
@@ -45,21 +45,41 @@ export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
 
     setApplying(true);
     try {
+      // 获取目标节点下已有的子节点名称
+      const existingChildTitles = new Set(
+        nodes
+          .filter((n) => n.parent_id === targetNodeId)
+          .map((n) => n.title.trim().toLowerCase())
+      );
+
+      let createdCount = 0;
+      let skippedCount = 0;
+
       // 按顺序创建子节点（使用 mutateAsync 确保顺序执行）
       for (const child of children) {
+        // 检查是否已存在同名节点（忽略大小写）
+        if (existingChildTitles.has(child.title.trim().toLowerCase())) {
+          skippedCount++;
+          continue;
+        }
+
         await createNodeAsync({
           projectId,
           parentId: targetNodeId,
           type: child.type,
           title: child.title,
-          // 根据类型设置不同字段
-          ...(child.type === "FILE"
-            ? { summary: child.summary }
-            : { outline: child.summary }),
+          // FOLDER 使用 outline，FILE 使用 summary
+          outline: child.type === "FOLDER" ? child.summary : undefined,
+          summary: child.type === "FILE" ? child.summary : undefined,
         });
+        createdCount++;
       }
 
-      toast.success(`成功创建 ${children.length} 个子节点`);
+      if (skippedCount > 0) {
+        toast.success(`成功创建 ${createdCount} 个子节点，跳过 ${skippedCount} 个已存在的节点`);
+      } else {
+        toast.success(`成功创建 ${createdCount} 个子节点`);
+      }
       clearPlanResult();
       setCurrentFunction("chat");
       clearUserContexts();
@@ -73,6 +93,7 @@ export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
     targetNodeId,
     children,
     projectId,
+    nodes,
     createNodeAsync,
     clearPlanResult,
     setCurrentFunction,

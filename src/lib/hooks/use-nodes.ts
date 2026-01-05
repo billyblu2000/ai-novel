@@ -24,6 +24,8 @@ interface CreateNodeInput {
   type: NodeType;
   title: string;
   order?: string;
+  outline?: string;
+  summary?: string;
 }
 
 async function createNode(input: CreateNodeInput): Promise<Node> {
@@ -35,6 +37,8 @@ async function createNode(input: CreateNodeInput): Promise<Node> {
       type: input.type,
       title: input.title,
       order: input.order,
+      outline: input.outline,
+      summary: input.summary,
     }),
   });
 
