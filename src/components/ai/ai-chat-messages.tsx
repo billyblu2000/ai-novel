@@ -7,20 +7,34 @@ import { Sparkles, User } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import { AIResultCard } from "./ai-result-card";
+import { AIPlanResultCard } from "./ai-plan-result-card";
+
+interface AIChatMessagesProps {
+  projectId?: string;
+}
 
 /**
  * AI 聊天消息列表组件
  * ChatGPT 风格的现代设计
  */
-export function AIChatMessages() {
-  const { chatHistory, isStreaming, streamingContent, isLoading, modifyResult, clearModifyResult } = useAIStore();
+export function AIChatMessages({ projectId }: AIChatMessagesProps) {
+  const {
+    chatHistory,
+    isStreaming,
+    streamingContent,
+    isLoading,
+    modifyResult,
+    clearModifyResult,
+    planResult,
+    currentFunction,
+  } = useAIStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // 自动滚动到底部
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatHistory, streamingContent, modifyResult]);
+  }, [chatHistory, streamingContent, modifyResult, planResult]);
 
   // 处理应用修改
   const handleApplyModify = (text: string) => {
@@ -32,7 +46,7 @@ export function AIChatMessages() {
   };
 
   // 空状态
-  if (chatHistory.length === 0 && !isStreaming && !isLoading && !modifyResult) {
+  if (chatHistory.length === 0 && !isStreaming && !isLoading && !modifyResult && !planResult) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
         <div className="space-y-4">
@@ -42,18 +56,31 @@ export function AIChatMessages() {
           <div>
             <p className="text-foreground font-medium mb-1">有什么可以帮您？</p>
             <p className="text-xs text-muted-foreground">
-              选择功能或直接输入问题
+              {currentFunction === "plan"
+                ? "输入额外要求或直接发送开始规划"
+                : "选择功能或直接输入问题"}
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-2 pt-2">
-            {["续写故事", "润色文字", "生成大纲"].map((hint) => (
-              <span
-                key={hint}
-                className="px-3 py-1.5 text-xs bg-muted/50 text-muted-foreground rounded-full border border-border/50"
-              >
-                {hint}
-              </span>
-            ))}
+            {currentFunction === "plan" ? (
+              ["生成 3 个场景", "每个场景约 2000 字", "注重情节冲突"].map((hint) => (
+                <span
+                  key={hint}
+                  className="px-3 py-1.5 text-xs bg-muted/50 text-muted-foreground rounded-full border border-border/50"
+                >
+                  {hint}
+                </span>
+              ))
+            ) : (
+              ["续写故事", "润色文字", "生成大纲"].map((hint) => (
+                <span
+                  key={hint}
+                  className="px-3 py-1.5 text-xs bg-muted/50 text-muted-foreground rounded-full border border-border/50"
+                >
+                  {hint}
+                </span>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -73,12 +100,29 @@ export function AIChatMessages() {
         ))}
 
         {/* 流式输出中的消息（普通聊天） */}
-        {isStreaming && streamingContent && !modifyResult && (
+        {isStreaming && streamingContent && !modifyResult && !planResult && (
           <MessageBubble
             role="assistant"
             content={streamingContent}
             isStreaming
           />
+        )}
+
+        {/* 规划功能流式输出（显示原始 JSON） */}
+        {isStreaming && streamingContent && planResult && (
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 h-7 w-7 rounded-lg bg-foreground flex items-center justify-center">
+              <Sparkles className="h-3.5 w-3.5 text-background" />
+            </div>
+            <div className="flex-1">
+              <div className="bg-muted/70 rounded-2xl rounded-tl-md px-3.5 py-2.5 text-sm">
+                <div className="font-mono text-xs text-muted-foreground whitespace-pre-wrap break-all">
+                  {streamingContent}
+                  <span className="inline-block w-0.5 h-4 ml-0.5 bg-foreground animate-pulse align-middle" />
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* 修改功能结果卡片 */}
@@ -101,9 +145,21 @@ export function AIChatMessages() {
           </div>
         )}
 
+        {/* 规划功能结果卡片 */}
+        {planResult && !planResult.isStreaming && projectId && (
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 h-7 w-7 rounded-lg bg-foreground flex items-center justify-center">
+              <Sparkles className="h-3.5 w-3.5 text-background" />
+            </div>
+            <div className="flex-1">
+              <AIPlanResultCard result={planResult} projectId={projectId} />
+            </div>
+          </div>
+        )}
+
         {/* 加载中状态 - AI思考动画 */}
-        {/* 显示条件：正在加载 或 (正在流式输出但内容为空且没有修改结果) */}
-        {(isLoading || (isStreaming && !streamingContent && !modifyResult)) && (
+        {/* 显示条件：正在加载 或 (正在流式输出但内容为空且没有修改结果且没有规划结果) */}
+        {(isLoading || (isStreaming && !streamingContent && !modifyResult && !planResult)) && (
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0 h-7 w-7 rounded-lg bg-foreground flex items-center justify-center">
               <Sparkles className="h-3.5 w-3.5 text-background animate-pulse" />

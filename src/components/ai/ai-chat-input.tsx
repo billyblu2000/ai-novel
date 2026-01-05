@@ -6,7 +6,7 @@ import { useAIStore } from "@/lib/stores/ai-store";
 import { useAIRequest } from "@/lib/ai/hooks";
 import { ArrowUp, Square, Loader2, ChevronDown, Lock, Unlock, Sparkles } from "lucide-react";
 import { AI_FUNCTIONS, isModifyFunction } from "@/lib/ai/types";
-import type { AIFunction, AIContext } from "@/lib/ai/types";
+import type { AIContext } from "@/lib/ai/types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,9 +15,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// 下拉菜单中可选的功能（不包含修改功能，修改功能只能通过右键菜单进入）
+// 下拉菜单中可选的功能
+// 只显示"对话"，修改类功能只能通过右键菜单进入，生成类功能只能通过特定按钮进入
 const SELECTABLE_FUNCTIONS = Object.values(AI_FUNCTIONS).filter(
-  (f) => !f.requiresSelection
+  (f) => f.id === "chat"
 );
 
 /**
@@ -40,19 +41,23 @@ export function AIChatInput() {
     modifyEnhancedContext,
     contextEnhancementEnabled,
     toggleContextEnhancement,
+    planContext,
+    planTargetNodeId,
   } = useAIStore();
 
   const { sendRequest, stopRequest, isLoading, isStreaming } = useAIRequest();
 
   const currentFunctionMeta = AI_FUNCTIONS[currentFunction];
   const isModify = isModifyFunction(currentFunction);
+  const isPlan = currentFunction === "plan";
 
   // 发送消息
   const handleSend = useCallback(async () => {
     const trimmedInput = input.trim();
 
-    // 普通聊天需要输入，修改功能需要选中文本
-    if (!isModify && !trimmedInput) return;
+    // 普通聊天需要输入，修改功能需要选中文本，规划功能需要规划上下文
+    if (!isModify && !isPlan && !trimmedInput) return;
+    if (isPlan && !planContext) return;
     if (isLoading || isStreaming) return;
 
     // 构建上下文
@@ -63,14 +68,19 @@ export function AIChatInput() {
       previousSummaries: [],
     };
 
+    // 获取目标节点 ID（规划功能使用）
+    const targetNodeId = isPlan ? planTargetNodeId || undefined : undefined;
+
     // 发送请求
     await sendRequest({
       function: currentFunction,
       userInput: trimmedInput || undefined,
-      chatHistory: isModify ? [] : chatHistory,
+      chatHistory: isModify || isPlan ? [] : chatHistory,
       context: currentProject || userContexts.length > 0 ? context : undefined,
       selectedText: selectedText || undefined,
       enhancedContext: isModify ? modifyEnhancedContext || undefined : undefined,
+      planContext: isPlan ? planContext || undefined : undefined,
+      targetNodeId,
       jailbreak: settings.jailbreakEnabled,
     });
 
@@ -87,10 +97,13 @@ export function AIChatInput() {
     selectedText,
     chatHistory,
     modifyEnhancedContext,
+    planContext,
+    planTargetNodeId,
     settings.jailbreakEnabled,
     isLoading,
     isStreaming,
     isModify,
+    isPlan,
     sendRequest,
   ]);
 
@@ -108,13 +121,16 @@ export function AIChatInput() {
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
   };
 
-  // 修改功能的占位符文本
+  // 占位符文本
   const getPlaceholder = () => {
     if (settings.jailbreakEnabled) {
       return "无限制模式：尽情发挥想象力...";
     }
     if (isModify) {
       return "可选：输入额外的修改要求...";
+    }
+    if (isPlan) {
+      return "可选：输入额外的规划要求...";
     }
     return "输入消息...";
   };
@@ -125,6 +141,10 @@ export function AIChatInput() {
     if (isModify) {
       // 修改功能：有选中文本即可发送
       return !!selectedText;
+    }
+    if (isPlan) {
+      // 规划功能：有规划上下文即可发送
+      return !!planContext;
     }
     // 普通聊天：需要输入内容
     return !!input.trim();
@@ -184,6 +204,29 @@ export function AIChatInput() {
                 <DropdownMenuItem disabled className="opacity-70">
                   <span>{currentFunctionMeta?.name}</span>
                   <span className="ml-auto text-[10px] text-muted-foreground">右键选中</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => toggleContextEnhancement()}
+                  className={cn(
+                    "cursor-pointer",
+                    contextEnhancementEnabled && "bg-blue-500/10 text-blue-600"
+                  )}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>上下文增强</span>
+                  {contextEnhancementEnabled && (
+                    <span className="ml-auto text-[10px]">✓</span>
+                  )}
+                </DropdownMenuItem>
+              </>
+            )}
+            {/* 如果当前是规划功能，显示一个分隔和当前功能（不可点击切换） */}
+            {isPlan && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem disabled className="opacity-70">
+                  <span>{currentFunctionMeta?.name}</span>
+                  <span className="ml-auto text-[10px] text-muted-foreground">文件夹按钮</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => toggleContextEnhancement()}

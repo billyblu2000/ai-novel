@@ -13,6 +13,9 @@ import {
   getModifySystemPrompt,
   buildModifyUserMessage,
   formatModifyEnhancedContext,
+  getPlanSystemPrompt,
+  buildPlanUserMessage,
+  type PlanContext,
 } from "@/lib/ai/prompts";
 
 /**
@@ -101,6 +104,35 @@ const chatRequestSchema = z.object({
       relatedEntityIds: z.array(z.string()).optional(),
     })
     .optional(),
+  // 规划功能的上下文
+  planContext: z
+    .object({
+      nodeName: z.string(),
+      nodeOutline: z.string(),
+      existingChildren: z.array(
+        z.object({
+          title: z.string(),
+          summary: z.string(),
+          type: z.enum(["FOLDER", "FILE"]),
+        })
+      ),
+      parentNode: z
+        .object({
+          name: z.string(),
+          outline: z.string(),
+        })
+        .optional(),
+      relatedEntities: z
+        .array(
+          z.object({
+            name: z.string(),
+            type: z.string(),
+            description: z.string(),
+          })
+        )
+        .optional(),
+    })
+    .optional(),
 });
 
 export type ChatRequestBody = z.infer<typeof chatRequestSchema>;
@@ -153,6 +185,8 @@ export async function POST(request: NextRequest) {
 
     // 修改功能（润色/扩写/缩写）
     const isModifyFunction = ["polish", "expand", "compress"].includes(aiFunction);
+    // 规划功能
+    const isPlanFunction = aiFunction === "plan";
 
     if (isModifyFunction) {
       // 获取选中的文本
@@ -196,6 +230,35 @@ export async function POST(request: NextRequest) {
       const userMessage = buildModifyUserMessage(
         selectedText,
         combinedContextInfo,
+        // 如果用户有额外输入，作为额外指令
+        messages.length > 0 && messages[messages.length - 1].role === "user"
+          ? messages[messages.length - 1].content
+          : undefined
+      );
+
+      // 构建最终消息列表
+      finalMessages = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ];
+    }
+    // 规划功能
+    else if (isPlanFunction) {
+      // 获取规划上下文
+      const planContext = parseResult.data.planContext;
+      if (!planContext) {
+        return validationErrorResponse("规划功能需要提供规划上下文");
+      }
+
+      // 获取项目信息
+      const projectInfo = context?.project as ProjectInfo | undefined;
+
+      // 构建 System Prompt
+      const systemPrompt = getPlanSystemPrompt(projectInfo);
+
+      // 构建用户消息
+      const userMessage = buildPlanUserMessage(
+        planContext as PlanContext,
         // 如果用户有额外输入，作为额外指令
         messages.length > 0 && messages[messages.length - 1].role === "user"
           ? messages[messages.length - 1].content

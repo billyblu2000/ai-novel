@@ -21,3 +21,11 @@ export {
   parseModifyResult,
   type ModifyResult,
 } from "./modify";
+export {
+  getPlanSystemPrompt,
+  buildPlanUserMessage,
+  parsePlanResult,
+  type PlanContext,
+  type PlannedChild,
+  type PlanResult,
+} from "./plan";

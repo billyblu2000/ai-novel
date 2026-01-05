@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { toast } from "sonner";
-import { FileText, FolderOpen, ChevronRight, Plus } from "lucide-react";
+import { FileText, FolderOpen, ChevronRight, Plus, Sparkles } from "lucide-react";
 import { TiptapEditor } from "./tiptap-editor";
 import { EditorToolbar } from "./editor-toolbar";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Node, FolderMetadata, FileMetadata } from "@/types";
 import { useNodes, buildTree, TreeNode } from "@/lib/hooks";
 import { useEditorStore } from "@/lib/stores";
+import { useAIStore } from "@/lib/stores/ai-store";
+import { buildPlanContext } from "@/lib/ai/context-builder";
 import { cn } from "@/lib/utils";
 
 interface FolderEditorProps {
@@ -137,6 +139,56 @@ export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProp
     return result;
   };
 
+  // AI规划功能
+  const {
+    toggleChatWindow,
+    setCurrentFunction,
+    setPlanContext,
+    setPlanTargetNodeId,
+    currentProject,
+    contextEnhancementEnabled,
+  } = useAIStore();
+
+  // 检查是否可以使用AI规划（需要有大纲）
+  const canUsePlan = useMemo(() => {
+    return !isNotesMode && outline && outline.trim().length > 0;
+  }, [isNotesMode, outline]);
+
+  const handleAIPlan = useCallback(() => {
+    if (!canUsePlan) {
+      toast.error("请先填写章节大纲后再使用AI规划");
+      return;
+    }
+
+    // 构建规划上下文
+    const planContext = buildPlanContext({
+      currentNode: { ...node, outline }, // 使用最新的outline
+      allNodes: nodes,
+      projectInfo: currentProject,
+      enhanceContext: contextEnhancementEnabled,
+      entities: [], // TODO: 如果需要可以从entities store获取
+    });
+
+    // 设置规划上下文、目标节点和功能
+    setPlanContext(planContext);
+    setPlanTargetNodeId(node.id);
+    setCurrentFunction("plan");
+
+    // 打开聊天窗口
+    toggleChatWindow(true);
+  }, [
+    canUsePlan,
+    node,
+    outline,
+    nodes,
+    currentProject,
+    contextEnhancementEnabled,
+    setPlanContext,
+    setPlanTargetNodeId,
+    setCurrentFunction,
+    toggleChatWindow,
+  ]);
+
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
@@ -159,10 +211,22 @@ export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProp
           {/* Outline Section (manuscript only) */}
           {!isNotesMode && (
             <div className="mb-8">
-              <h2 className="text-lg font-medium mb-3 flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                章节大纲
-              </h2>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-medium flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  章节大纲
+                </h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAIPlan}
+                  disabled={!canUsePlan}
+                  title={canUsePlan ? "使用AI规划子章节" : "请先填写章节大纲"}
+                >
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  AI规划
+                </Button>
+              </div>
               <TiptapEditor
                 content={outline}
                 placeholder="在这里编写章节大纲和写作计划..."

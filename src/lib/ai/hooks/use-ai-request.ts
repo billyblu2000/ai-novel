@@ -6,9 +6,10 @@
 import { useCallback, useRef } from "react";
 import { useAIStore } from "@/lib/stores/ai-store";
 import { getModelForFunction } from "@/lib/ai/settings";
-import { parseModifyResult } from "@/lib/ai/prompts";
+import { parseModifyResult, parsePlanResult } from "@/lib/ai/prompts";
 import type { AIFunction, AIContext, ChatMessage } from "@/lib/ai/types";
 import { isModifyFunction } from "@/lib/ai/types";
+import type { PlanContext } from "@/lib/ai/prompts/plan";
 
 /**
  * AI 请求参数
@@ -32,6 +33,10 @@ export interface AIRequestParams {
     chapterSummary?: string;
     relatedEntityIds?: string[];
   };
+  /** 规划上下文（规划功能使用） */
+  planContext?: PlanContext;
+  /** 目标节点 ID（规划功能使用，用于应用结果） */
+  targetNodeId?: string;
   /** 是否启用破限模式 */
   jailbreak?: boolean;
 }
@@ -63,6 +68,7 @@ export function useAIRequest() {
     setLastRequestDebug,
     setModifyResult,
     updateModifyResultText,
+    setPlanResult,
     addMessage,
   } = useAIStore();
 
@@ -78,10 +84,13 @@ export function useAIRequest() {
         context,
         selectedText,
         enhancedContext,
+        planContext,
+        targetNodeId,
         jailbreak = false,
       } = params;
 
       const isModify = isModifyFunction(aiFunction);
+      const isPlan = aiFunction === "plan";
 
       // 验证参数
       if (isModify && !selectedText) {
@@ -89,7 +98,12 @@ export function useAIRequest() {
         return { success: false, error: "请先选中需要修改的文本" };
       }
 
-      if (!isModify && !userInput?.trim() && chatHistory.length === 0) {
+      if (isPlan && !planContext) {
+        setError("规划功能需要提供上下文");
+        return { success: false, error: "规划功能需要提供上下文" };
+      }
+
+      if (!isModify && !isPlan && !userInput?.trim() && chatHistory.length === 0) {
         return { success: false, error: "请输入内容" };
       }
 
@@ -102,7 +116,7 @@ export function useAIRequest() {
       }
 
       // 对于普通聊天，添加用户消息到历史
-      if (!isModify && userInput?.trim()) {
+      if (!isModify && !isPlan && userInput?.trim()) {
         addMessage({ role: "user", content: userInput.trim() });
       }
 
@@ -114,11 +128,11 @@ export function useAIRequest() {
 
         // 构建请求消息
         let requestMessages: ChatMessage[];
-        if (isModify) {
-          // 修改功能：如果有额外输入，作为用户指令
+        if (isModify || isPlan) {
+          // 修改/规划功能：如果有额外输入，作为用户指令
           requestMessages = userInput?.trim()
             ? [{ role: "user" as const, content: userInput.trim() }]
-            : [];
+            : [{ role: "user" as const, content: "" }];
         } else {
           // 普通聊天：使用聊天历史
           requestMessages = [...chatHistory];
@@ -141,6 +155,7 @@ export function useAIRequest() {
           context: context || undefined,
           selectedText: selectedText || undefined,
           enhancedContext: isModify ? enhancedContext : undefined,
+          planContext: isPlan ? planContext : undefined,
           stream: true,
         };
 
@@ -172,6 +187,12 @@ export function useAIRequest() {
             modifiedText: "",
             functionType: aiFunction as "polish" | "expand" | "compress",
             isStreaming: true,
+          });
+        } else if (isPlan) {
+          setPlanResult({
+            children: [],
+            isStreaming: true,
+            targetNodeId: targetNodeId || "",
           });
         } else {
           setStreamingContent("");
@@ -206,6 +227,9 @@ export function useAIRequest() {
                   fullContent += parsed.content;
                   if (isModify) {
                     updateModifyResultText(fullContent);
+                  } else if (isPlan) {
+                    // 规划功能：流式显示原始内容
+                    appendStreamingContent(parsed.content);
                   } else {
                     appendStreamingContent(parsed.content);
                   }
@@ -227,6 +251,20 @@ export function useAIRequest() {
             functionType: aiFunction as "polish" | "expand" | "compress",
             isStreaming: false,
           });
+        } else if (isPlan) {
+          // 解析规划结果
+          const result = parsePlanResult(fullContent);
+          if (result) {
+            setPlanResult({
+              children: result.children,
+              explanation: result.explanation,
+              isStreaming: false,
+              targetNodeId: targetNodeId || "",
+            });
+          } else {
+            setError("无法解析规划结果，请重试");
+            setPlanResult(null);
+          }
         }
 
         setStreaming(false);
@@ -255,6 +293,7 @@ export function useAIRequest() {
       setLastRequestDebug,
       setModifyResult,
       updateModifyResultText,
+      setPlanResult,
       addMessage,
     ]
   );

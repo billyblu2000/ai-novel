@@ -23,6 +23,7 @@ import {
 
 // 重新导出类型供外部使用
 export type { ModifyEnhancedContext } from "@/lib/ai/types";
+export type { PlanContext, PlannedChild, PlanResult } from "@/lib/ai/prompts/plan";
 
 /**
  * 修改功能结果
@@ -38,6 +39,24 @@ export interface ModifyResultState {
   functionType: "polish" | "expand" | "compress";
   /** 是否正在流式输出 */
   isStreaming: boolean;
+}
+
+/**
+ * 规划功能结果
+ */
+export interface PlanResultState {
+  /** 规划的子节点列表 */
+  children: Array<{
+    title: string;
+    summary: string;
+    type: "FOLDER" | "FILE";
+  }>;
+  /** 规划说明 */
+  explanation?: string;
+  /** 是否正在流式输出 */
+  isStreaming: boolean;
+  /** 当前节点 ID（用于应用规划结果） */
+  targetNodeId: string;
 }
 
 /**
@@ -69,6 +88,14 @@ interface AIState {
   contextEnhancementEnabled: boolean;
   /** 修改功能的增强上下文 */
   modifyEnhancedContext: ModifyEnhancedContext | null;
+
+  // ========== 规划功能状态 ==========
+  /** 规划功能结果 */
+  planResult: PlanResultState | null;
+  /** 规划功能上下文 */
+  planContext: import("@/lib/ai/prompts/plan").PlanContext | null;
+  /** 规划目标节点 ID */
+  planTargetNodeId: string | null;
 
   // ========== 请求状态 ==========
   /** 是否正在加载 */
@@ -131,6 +158,13 @@ interface AIState {
   toggleContextEnhancement: (enabled?: boolean) => void;
   setModifyEnhancedContext: (context: ModifyEnhancedContext | null) => void;
 
+  // 规划功能相关
+  setPlanResult: (result: PlanResultState | null) => void;
+  updatePlanResult: (children: PlanResultState["children"]) => void;
+  clearPlanResult: () => void;
+  setPlanContext: (context: import("@/lib/ai/prompts/plan").PlanContext | null) => void;
+  setPlanTargetNodeId: (nodeId: string | null) => void;
+
   // 请求状态
   setLoading: (loading: boolean) => void;
   setStreaming: (streaming: boolean) => void;
@@ -164,6 +198,10 @@ export const useAIStore = create<AIState>((set, get) => ({
   modifyResult: null,
   contextEnhancementEnabled: false,
   modifyEnhancedContext: null,
+
+  planResult: null,
+  planContext: null,
+  planTargetNodeId: null,
 
   isLoading: false,
   isStreaming: false,
@@ -286,6 +324,39 @@ export const useAIStore = create<AIState>((set, get) => ({
   // 设置修改功能的增强上下文
   setModifyEnhancedContext: (context) => {
     set({ modifyEnhancedContext: context });
+  },
+
+  // 设置规划结果
+  setPlanResult: (result) => {
+    set({ planResult: result });
+  },
+
+  // 更新规划结果（用于流式输出解析后更新）
+  updatePlanResult: (children) => {
+    set((state) => {
+      if (!state.planResult) return state;
+      return {
+        planResult: {
+          ...state.planResult,
+          children,
+        },
+      };
+    });
+  },
+
+  // 清空规划结果
+  clearPlanResult: () => {
+    set({ planResult: null, planContext: null, planTargetNodeId: null });
+  },
+
+  // 设置规划上下文
+  setPlanContext: (context) => {
+    set({ planContext: context });
+  },
+
+  // 设置规划目标节点 ID
+  setPlanTargetNodeId: (nodeId) => {
+    set({ planTargetNodeId: nodeId });
   },
 
   // 设置加载状态
