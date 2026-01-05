@@ -271,6 +271,7 @@ export function useNodes(projectId: string | null) {
 
     // Mutations
     createNode: createMutation.mutate,
+    createNodeAsync: createMutation.mutateAsync,
     updateNode: updateMutation.mutate,
     deleteNode: deleteMutation.mutate,
     moveNode: moveMutation.mutate,

@@ -29,7 +29,7 @@ interface AIPlanResultCardProps {
  */
 export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
   const { clearPlanResult, setCurrentFunction, clearUserContexts } = useAIStore();
-  const { createNode, isCreating } = useNodes(projectId);
+  const { createNodeAsync, isCreating } = useNodes(projectId);
   const [copied, setCopied] = useState(false);
   const [applying, setApplying] = useState(false);
   const [expanded, setExpanded] = useState(true);
@@ -45,9 +45,9 @@ export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
 
     setApplying(true);
     try {
-      // 按顺序创建子节点
+      // 按顺序创建子节点（使用 mutateAsync 确保顺序执行）
       for (const child of children) {
-        await createNode({
+        await createNodeAsync({
           projectId,
           parentId: targetNodeId,
           type: child.type,
@@ -73,7 +73,7 @@ export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
     targetNodeId,
     children,
     projectId,
-    createNode,
+    createNodeAsync,
     clearPlanResult,
     setCurrentFunction,
     clearUserContexts,
