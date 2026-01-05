@@ -1,17 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useAIStore, type ModifyEnhancedContext } from "@/lib/stores/ai-store";
+import { useAIStore } from "@/lib/stores/ai-store";
 import { Wand2, Expand, Minimize2, Sparkles, MessageSquare } from "lucide-react";
-import type { AIFunction } from "@/lib/ai/types";
+import type { AIFunction, NodeInfo } from "@/lib/ai/types";
+import { buildModifyEnhancedContext, entitiesToUserContexts } from "@/lib/ai/context-builder";
 import type { Entity } from "@/types";
-
-/** 简化的节点信息（用于 AI 上下文增强） */
-interface NodeInfo {
-  id: string;
-  title: string;
-  summary?: string;
-}
 
 interface AIContextMenuProps {
   /** 选中的文字 */
@@ -96,60 +90,6 @@ export function AIContextMenu({
     contextEnhancementEnabled,
   } = useAIStore();
 
-  // 构建增强上下文
-  const buildEnhancedContext = useCallback((): ModifyEnhancedContext | null => {
-    if (!contextEnhancementEnabled) return null;
-
-    const context: ModifyEnhancedContext = {};
-
-    // 1. 提取前后文（各取约 200 字）
-    if (editorContent && selectionStart !== undefined && selectionEnd !== undefined) {
-      const maxContextLength = 200;
-      
-      // 前文：从选中位置往前取
-      const beforeStart = Math.max(0, selectionStart - maxContextLength);
-      const textBefore = editorContent.slice(beforeStart, selectionStart).trim();
-      if (textBefore) {
-        context.textBefore = textBefore;
-      }
-
-      // 后文：从选中位置往后取
-      const afterEnd = Math.min(editorContent.length, selectionEnd + maxContextLength);
-      const textAfter = editorContent.slice(selectionEnd, afterEnd).trim();
-      if (textAfter) {
-        context.textAfter = textAfter;
-      }
-    }
-
-    // 2. 当前场景摘要
-    if (currentNode?.summary) {
-      context.sceneSummary = currentNode.summary;
-    }
-
-    // 3. 当前章节摘要
-    if (parentNode?.summary) {
-      context.chapterSummary = parentNode.summary;
-    }
-
-    // 4. 关联实体 ID
-    if (mentionedEntityIds && mentionedEntityIds.length > 0) {
-      context.relatedEntityIds = mentionedEntityIds;
-    }
-
-    // 如果没有任何增强信息，返回 null
-    if (Object.keys(context).length === 0) return null;
-
-    return context;
-  }, [
-    contextEnhancementEnabled,
-    editorContent,
-    selectionStart,
-    selectionEnd,
-    currentNode,
-    parentNode,
-    mentionedEntityIds,
-  ]);
-
   // 调整菜单位置，确保不超出视口
   useEffect(() => {
     if (!visible) return;
@@ -194,25 +134,27 @@ export function AIContextMenu({
         text: selectedText,
       });
 
-      // 4. 构建并设置增强上下文
-      const enhancedContext = buildEnhancedContext();
+      // 4. 构建并设置增强上下文（使用集中的构建器）
+      const enhancedContext = contextEnhancementEnabled
+        ? buildModifyEnhancedContext({
+            editorContent,
+            selectionStart,
+            selectionEnd,
+            currentNode,
+            parentNode,
+            mentionedEntityIds,
+          })
+        : null;
       setModifyEnhancedContext(enhancedContext);
 
       // 5. 如果有关联实体，添加到用户上下文
       if (enhancedContext?.relatedEntityIds && entities) {
-        for (const entityId of enhancedContext.relatedEntityIds) {
-          const entity = entities.find((e) => e.id === entityId);
-          if (entity) {
-            addUserContext({
-              type: "entity",
-              entityId: entity.id,
-              entityType: entity.type,
-              name: entity.name,
-              aliases: entity.aliases,
-              description: entity.description,
-              attributes: entity.attributes,
-            });
-          }
+        const entityContexts = entitiesToUserContexts(
+          entities,
+          enhancedContext.relatedEntityIds
+        );
+        for (const ctx of entityContexts) {
+          addUserContext(ctx);
         }
       }
 
@@ -228,6 +170,13 @@ export function AIContextMenu({
     [
       selectedText,
       entities,
+      editorContent,
+      selectionStart,
+      selectionEnd,
+      currentNode,
+      parentNode,
+      mentionedEntityIds,
+      contextEnhancementEnabled,
       clearUserContexts,
       clearModifyResult,
       setSelectedText,
@@ -235,7 +184,6 @@ export function AIContextMenu({
       setCurrentFunction,
       toggleChatWindow,
       onClose,
-      buildEnhancedContext,
       setModifyEnhancedContext,
     ]
   );

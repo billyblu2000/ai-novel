@@ -3,10 +3,10 @@
 import { useState, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { useAIStore } from "@/lib/stores/ai-store";
+import { useAIRequest } from "@/lib/ai/hooks";
 import { ArrowUp, Square, Loader2, ChevronDown, Lock, Unlock, Sparkles } from "lucide-react";
-import { getModelForFunction } from "@/lib/ai/settings";
+import { AI_FUNCTIONS, isModifyFunction } from "@/lib/ai/types";
 import type { AIFunction, AIContext } from "@/lib/ai/types";
-import { parseModifyResult } from "@/lib/ai/prompts";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,27 +15,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// AI 功能定义（完整列表，用于显示当前功能名称）
-const ALL_AI_FUNCTIONS: {
-  id: AIFunction;
-  name: string;
-  description: string;
-  requiresSelection?: boolean;
-}[] = [
-  { id: "chat", name: "对话", description: "自由对话" },
-  { id: "continue", name: "续写", description: "接续内容" },
-  { id: "plan", name: "规划", description: "生成摘要" },
-  { id: "summarize", name: "总结", description: "内容总结" },
-  { id: "polish", name: "润色", description: "提升文笔", requiresSelection: true },
-  { id: "expand", name: "扩写", description: "丰富细节", requiresSelection: true },
-  { id: "compress", name: "缩写", description: "精简内容", requiresSelection: true },
-];
-
 // 下拉菜单中可选的功能（不包含修改功能，修改功能只能通过右键菜单进入）
-const SELECTABLE_FUNCTIONS = ALL_AI_FUNCTIONS.filter((f) => !f.requiresSelection);
-
-// 修改功能列表
-const MODIFY_FUNCTIONS = ["polish", "expand", "compress"] as const;
+const SELECTABLE_FUNCTIONS = Object.values(AI_FUNCTIONS).filter(
+  (f) => !f.requiresSelection
+);
 
 /**
  * AI 聊天输入组件
@@ -44,7 +27,6 @@ const MODIFY_FUNCTIONS = ["polish", "expand", "compress"] as const;
 export function AIChatInput() {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
 
   const {
     currentFunction,
@@ -54,197 +36,48 @@ export function AIChatInput() {
     currentProject,
     settings,
     toggleJailbreak,
-    isLoading,
-    isStreaming,
-    addMessage,
-    setLoading,
-    setStreaming,
-    setStreamingContent,
-    appendStreamingContent,
-    setError,
-    debugMode,
-    setLastRequestDebug,
-    setModifyResult,
-    updateModifyResultText,
+    chatHistory,
     modifyEnhancedContext,
     contextEnhancementEnabled,
     toggleContextEnhancement,
   } = useAIStore();
 
-  const currentFunctionInfo = ALL_AI_FUNCTIONS.find((f) => f.id === currentFunction);
-  const isModifyFunction = currentFunctionInfo?.requiresSelection;
+  const { sendRequest, stopRequest, isLoading, isStreaming } = useAIRequest();
+
+  const currentFunctionMeta = AI_FUNCTIONS[currentFunction];
+  const isModify = isModifyFunction(currentFunction);
 
   // 发送消息
   const handleSend = useCallback(async () => {
     const trimmedInput = input.trim();
-    
-    // 修改功能可以不需要输入（直接处理选中文本）
-    const isModify = MODIFY_FUNCTIONS.includes(currentFunction as typeof MODIFY_FUNCTIONS[number]);
-    
+
     // 普通聊天需要输入，修改功能需要选中文本
     if (!isModify && !trimmedInput) return;
-    if (isModify && !selectedText) {
-      setError("请先选中需要修改的文本");
-      return;
-    }
     if (isLoading || isStreaming) return;
 
-    const modelConfig = getModelForFunction(currentFunction);
-    if (!modelConfig) {
-      setError("未找到可用的 AI 服务商，请先配置 API Key");
-      return;
-    }
+    // 构建上下文
+    const context: AIContext = {
+      project: currentProject || undefined,
+      userContexts: userContexts,
+      relatedEntities: [],
+      previousSummaries: [],
+    };
 
-    // 对于普通聊天，添加用户消息
-    if (!isModify && trimmedInput) {
-      addMessage({ role: "user", content: trimmedInput });
-    }
-    
+    // 发送请求
+    await sendRequest({
+      function: currentFunction,
+      userInput: trimmedInput || undefined,
+      chatHistory: isModify ? [] : chatHistory,
+      context: currentProject || userContexts.length > 0 ? context : undefined,
+      selectedText: selectedText || undefined,
+      enhancedContext: isModify ? modifyEnhancedContext || undefined : undefined,
+      jailbreak: settings.jailbreakEnabled,
+    });
+
+    // 清空输入
     setInput("");
-    setLoading(true);
-    setError(null);
-
-    // 重置 textarea 高度
     if (textareaRef.current) {
       textareaRef.current.style.height = "32px";
-    }
-
-    try {
-      abortControllerRef.current = new AbortController();
-
-      // 构建上下文
-      const context: AIContext = {
-        project: currentProject || undefined,
-        userContexts: userContexts,
-        relatedEntities: [],
-        previousSummaries: [],
-      };
-
-      // 构建请求消息
-      let requestMessages;
-      if (isModify) {
-        // 修改功能：如果有额外输入，作为用户指令
-        requestMessages = trimmedInput 
-          ? [{ role: "user" as const, content: trimmedInput }]
-          : [];
-      } else {
-        // 普通聊天：从 store 获取聊天历史
-        requestMessages = [...useAIStore.getState().chatHistory];
-      }
-
-      const requestBody = {
-        function: currentFunction,
-        provider: {
-          id: modelConfig.provider,
-          apiKey: modelConfig.apiKey,
-          baseUrl: modelConfig.baseUrl,
-          model: modelConfig.model,
-        },
-        messages: requestMessages,
-        jailbreak: settings.jailbreakEnabled,
-        context: currentProject || userContexts.length > 0 ? context : undefined,
-        selectedText: selectedText || undefined,
-        enhancedContext: isModify ? modifyEnhancedContext : undefined,
-        stream: true,
-      };
-
-      const response = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-        signal: abortControllerRef.current.signal,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "请求失败");
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error("无法读取响应流");
-      }
-
-      setLoading(false);
-      setStreaming(true);
-      
-      // 修改功能：初始化修改结果状态
-      if (isModify) {
-        setModifyResult({
-          originalText: selectedText!,
-          modifiedText: "",
-          functionType: currentFunction as "polish" | "expand" | "compress",
-          isStreaming: true,
-        });
-      } else {
-        setStreamingContent("");
-      }
-
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let fullContent = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
-            if (data === "[DONE]") continue;
-            try {
-              const parsed = JSON.parse(data);
-              // 处理 debug 信息
-              if (parsed.debug && debugMode) {
-                setLastRequestDebug(parsed.debug);
-              }
-              // 处理内容
-              if (parsed.content) {
-                fullContent += parsed.content;
-                if (isModify) {
-                  // 修改功能：更新修改结果
-                  updateModifyResultText(fullContent);
-                } else {
-                  // 普通聊天：追加流式内容
-                  appendStreamingContent(parsed.content);
-                }
-              }
-            } catch {
-              // 忽略解析错误
-            }
-          }
-        }
-      }
-
-      // 流式结束后处理
-      if (isModify) {
-        // 解析修改结果（JSON 格式）
-        const result = parseModifyResult(fullContent);
-        setModifyResult({
-          originalText: selectedText!,
-          modifiedText: result.result,
-          explanation: result.explanation,
-          functionType: currentFunction as "polish" | "expand" | "compress",
-          isStreaming: false,
-        });
-      }
-
-      setStreaming(false);
-    } catch (error) {
-      if ((error as Error).name === "AbortError") {
-        setStreaming(false);
-        return;
-      }
-      setError((error as Error).message);
-      setLoading(false);
-      setStreaming(false);
-    } finally {
-      abortControllerRef.current = null;
     }
   }, [
     input,
@@ -252,29 +85,14 @@ export function AIChatInput() {
     userContexts,
     currentProject,
     selectedText,
+    chatHistory,
     modifyEnhancedContext,
     settings.jailbreakEnabled,
-    debugMode,
     isLoading,
     isStreaming,
-    addMessage,
-    setLoading,
-    setStreaming,
-    setStreamingContent,
-    appendStreamingContent,
-    setError,
-    setModifyResult,
-    updateModifyResultText,
-    setLastRequestDebug,
+    isModify,
+    sendRequest,
   ]);
-
-  const handleStop = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    setStreaming(false);
-  }, [setStreaming]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -295,7 +113,7 @@ export function AIChatInput() {
     if (settings.jailbreakEnabled) {
       return "无限制模式：尽情发挥想象力...";
     }
-    if (isModifyFunction) {
+    if (isModify) {
       return "可选：输入额外的修改要求...";
     }
     return "输入消息...";
@@ -304,7 +122,7 @@ export function AIChatInput() {
   // 发送按钮是否可用
   const canSend = () => {
     if (isLoading) return false;
-    if (isModifyFunction) {
+    if (isModify) {
       // 修改功能：有选中文本即可发送
       return !!selectedText;
     }
@@ -342,7 +160,7 @@ export function AIChatInput() {
                 "focus:outline-none focus:ring-2 focus:ring-violet-500/20"
               )}
             >
-              <span className="text-muted-foreground">{currentFunctionInfo?.name}</span>
+              <span className="text-muted-foreground">{currentFunctionMeta?.name}</span>
               <ChevronDown className="h-3 w-3 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
@@ -360,11 +178,11 @@ export function AIChatInput() {
               </DropdownMenuItem>
             ))}
             {/* 如果当前是修改功能，显示一个分隔和当前功能（不可点击切换） */}
-            {isModifyFunction && (
+            {isModify && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem disabled className="opacity-70">
-                  <span>{currentFunctionInfo?.name}</span>
+                  <span>{currentFunctionMeta?.name}</span>
                   <span className="ml-auto text-[10px] text-muted-foreground">右键选中</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -420,7 +238,7 @@ export function AIChatInput() {
         {/* 发送/停止按钮 */}
         {isStreaming ? (
           <button
-            onClick={handleStop}
+            onClick={stopRequest}
             className={cn(
               "flex-shrink-0 h-8 w-8 rounded-xl",
               "bg-red-500 hover:bg-red-600",
@@ -443,7 +261,7 @@ export function AIChatInput() {
                 ? "bg-violet-500 hover:bg-violet-600 text-white"
                 : "bg-muted text-muted-foreground cursor-not-allowed"
             )}
-            title={isModifyFunction ? "开始处理" : "发送"}
+            title={isModify ? "开始处理" : "发送"}
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -457,10 +275,10 @@ export function AIChatInput() {
       {/* 底部提示 */}
       <div className="px-3 pb-2 flex items-center justify-between">
         <span className="text-[10px] text-muted-foreground/60">
-          {isModifyFunction ? "Enter 开始处理" : "Enter 发送 · Shift+Enter 换行"}
+          {isModify ? "Enter 开始处理" : "Enter 发送 · Shift+Enter 换行"}
         </span>
         <div className="flex items-center gap-2">
-          {isModifyFunction && contextEnhancementEnabled && (
+          {isModify && contextEnhancementEnabled && (
             <span className="text-[10px] text-blue-500/80">
               上下文增强
             </span>

@@ -11,14 +11,18 @@ import type {
   UserContextItem,
   FunctionModelConfig,
   ProjectInfo,
+  ModifyEnhancedContext,
 } from "@/lib/ai/types";
-import { DEFAULT_AI_SETTINGS } from "@/lib/ai/types";
+import { DEFAULT_AI_SETTINGS, isModifyFunction } from "@/lib/ai/types";
 import {
   loadAISettings,
   updateProviderSettings as updateProviderSettingsStorage,
   updateFunctionModel as updateFunctionModelStorage,
   toggleJailbreak as toggleJailbreakStorage,
 } from "@/lib/ai/settings";
+
+// 重新导出类型供外部使用
+export type { ModifyEnhancedContext } from "@/lib/ai/types";
 
 /**
  * 修改功能结果
@@ -34,22 +38,6 @@ export interface ModifyResultState {
   functionType: "polish" | "expand" | "compress";
   /** 是否正在流式输出 */
   isStreaming: boolean;
-}
-
-/**
- * 修改功能的增强上下文
- */
-export interface ModifyEnhancedContext {
-  /** 选中文本的前文 */
-  textBefore?: string;
-  /** 选中文本的后文 */
-  textAfter?: string;
-  /** 当前场景摘要 */
-  sceneSummary?: string;
-  /** 当前章节摘要 */
-  chapterSummary?: string;
-  /** 关联的实体 ID 列表 */
-  relatedEntityIds?: string[];
 }
 
 /**

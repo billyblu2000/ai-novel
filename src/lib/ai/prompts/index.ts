@@ -11,7 +11,6 @@ export {
   formatUserContexts,
   formatSelectedText,
   formatModifyEnhancedContext,
-  type ModifyEnhancedContextInput,
 } from "./context-formatter";
 export {
   POLISH_SYSTEM_PROMPT,

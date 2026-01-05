@@ -7,17 +7,11 @@ import CharacterCount from "@tiptap/extension-character-count";
 import { useEffect, useCallback, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Entity } from "@/types";
+import type { NodeInfo } from "@/lib/ai/types";
 import { EntityHighlight } from "@/lib/tiptap-entity-highlight";
 import { EntityHoverCard } from "@/components/entities/entity-hover-card";
 import { EntityContextMenu } from "@/components/entities/entity-context-menu";
 import { AIContextMenu } from "@/components/ai/ai-context-menu";
-
-/** 简化的节点信息（用于 AI 上下文增强） */
-interface NodeInfo {
-  id: string;
-  title: string;
-  summary?: string;
-}
 
 interface EntityAwareEditorProps {
   content: string;

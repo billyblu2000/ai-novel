@@ -3,7 +3,7 @@
  * 将用户添加的上下文格式化为可读的文本
  */
 
-import type { UserContextItem } from "@/lib/ai/types";
+import type { UserContextItem, ModifyEnhancedContext } from "@/lib/ai/types";
 
 // 实体类型中文映射
 const ENTITY_TYPE_LABELS: Record<string, string> = {
@@ -138,26 +138,12 @@ ${selectedText}
 }
 
 /**
- * 修改功能的增强上下文
- */
-export interface ModifyEnhancedContextInput {
-  /** 选中文本的前文 */
-  textBefore?: string;
-  /** 选中文本的后文 */
-  textAfter?: string;
-  /** 当前场景摘要 */
-  sceneSummary?: string;
-  /** 当前章节摘要 */
-  chapterSummary?: string;
-}
-
-/**
  * 格式化修改功能的增强上下文
  * @param context 增强上下文
  * @returns 格式化后的文本，如果没有上下文则返回 undefined
  */
 export function formatModifyEnhancedContext(
-  context: ModifyEnhancedContextInput
+  context: ModifyEnhancedContext
 ): string | undefined {
   const parts: string[] = [];
 
