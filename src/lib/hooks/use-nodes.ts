@@ -307,18 +307,26 @@ export function buildTree(nodes: Node[]): TreeNode[] {
     nodeMap.set(node.id, { ...node, children: [], depth: 0 });
   });
 
-  // Second pass: build tree structure
+  // Second pass: build tree structure (only parent-child relationships)
   nodes.forEach((node) => {
     const treeNode = nodeMap.get(node.id)!;
 
     if (node.parent_id && nodeMap.has(node.parent_id)) {
       const parent = nodeMap.get(node.parent_id)!;
       parent.children.push(treeNode);
-      treeNode.depth = parent.depth + 1;
     } else {
       roots.push(treeNode);
     }
   });
+
+  // Third pass: calculate depths recursively (ensures correct depth regardless of order)
+  const calculateDepths = (nodes: TreeNode[], depth: number) => {
+    nodes.forEach((node) => {
+      node.depth = depth;
+      calculateDepths(node.children, depth + 1);
+    });
+  };
+  calculateDepths(roots, 0);
 
   // Sort children by order
   const sortChildren = (nodes: TreeNode[]) => {
