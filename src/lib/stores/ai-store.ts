@@ -10,6 +10,7 @@ import type {
   ChatMessage,
   UserContextItem,
   FunctionModelConfig,
+  ProjectInfo,
 } from "@/lib/ai/types";
 import { DEFAULT_AI_SETTINGS } from "@/lib/ai/types";
 import {
@@ -30,6 +31,8 @@ interface AIState {
   settingsLoaded: boolean;
 
   // ========== 聊天状态 ==========
+  /** 当前项目信息 */
+  currentProject: ProjectInfo | null;
   /** 当前聊天历史 */
   chatHistory: ChatMessage[];
   /** 当前选择的功能 */
@@ -84,6 +87,7 @@ interface AIState {
   toggleJailbreak: (enabled: boolean) => void;
 
   // 聊天相关
+  setCurrentProject: (project: ProjectInfo | null) => void;
   setCurrentFunction: (func: AIFunction) => void;
   addUserContext: (context: UserContextItem) => void;
   removeUserContext: (index: number) => void;
@@ -117,6 +121,7 @@ export const useAIStore = create<AIState>((set, get) => ({
   settingsLoaded: false,
 
   chatHistory: [],
+  currentProject: null,
   currentFunction: "chat",
   userContexts: [],
   selectedText: null,
@@ -161,6 +166,11 @@ export const useAIStore = create<AIState>((set, get) => ({
   toggleJailbreak: (enabled) => {
     const newSettings = toggleJailbreakStorage(enabled);
     set({ settings: newSettings });
+  },
+
+  // 设置当前项目
+  setCurrentProject: (project) => {
+    set({ currentProject: project });
   },
 
   // 设置当前功能

@@ -161,6 +161,14 @@ export const DEFAULT_AI_SETTINGS: AISettings = {
 // ============ 上下文相关类型 ============
 
 /**
+ * 项目信息（用于 System Prompt）
+ */
+export interface ProjectInfo {
+  title: string;
+  description?: string | null;
+}
+
+/**
  * 节点上下文
  */
 export interface NodeContext {
@@ -175,9 +183,28 @@ export interface NodeContext {
  * 用户添加的上下文项
  */
 export type UserContextItem =
-  | { type: "node"; nodeId: string; title: string; content: string }
+  | {
+      type: "node";
+      nodeId: string;
+      title: string;
+      nodeType: "FOLDER" | "FILE";
+      content: string;
+      summary: string;
+      /** 场景的故事时间 (FILE) */
+      timestamp?: string | null;
+      /** 章节的子节点名称列表 (FOLDER) */
+      childrenNames?: string[];
+    }
   | { type: "selection"; text: string }
-  | { type: "entity"; entityId: string; name: string; description: string };
+  | {
+      type: "entity";
+      entityId: string;
+      entityType: "CHARACTER" | "LOCATION" | "ITEM";
+      name: string;
+      aliases: string[];
+      description: string;
+      attributes: Record<string, unknown>;
+    };
 
 /**
  * 实体简要信息（用于上下文）
@@ -193,6 +220,9 @@ export interface EntityBrief {
  * AI 上下文
  */
 export interface AIContext {
+  /** 项目信息 */
+  project?: ProjectInfo;
+
   /** 当前节点信息 */
   currentNode?: NodeContext;
 

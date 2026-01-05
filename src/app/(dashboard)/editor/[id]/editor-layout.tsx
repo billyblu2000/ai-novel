@@ -122,7 +122,7 @@ export function EditorLayout({ project, user, profile }: EditorLayoutProps) {
       </div>
       
       {/* AI 聊天浮窗 */}
-      <AIChatWindow nodes={nodes} entities={entities} />
+      <AIChatWindow project={project} nodes={nodes} entities={entities} />
     </div>
   );
 }

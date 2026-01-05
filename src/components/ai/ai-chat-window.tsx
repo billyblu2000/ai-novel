@@ -11,9 +11,11 @@ import { AIContextTags } from "./ai-context-tags";
 import { AIContextSelector } from "./ai-context-selector";
 import { AIDebugPanel, AIDebugToggle } from "./ai-debug-panel";
 import Link from "next/link";
-import type { Node, Entity } from "@/types";
+import type { Node, Entity, Project } from "@/types";
 
 interface AIChatWindowProps {
+  /** 当前项目信息 */
+  project?: Project;
   /** 可用的节点列表（用于上下文选择） */
   nodes?: Node[];
   /** 可用的实体列表（用于上下文选择） */
@@ -24,7 +26,7 @@ interface AIChatWindowProps {
  * AI 聊天浮窗组件
  * 现代简约风格，参考 ChatGPT 设计
  */
-export function AIChatWindow({ nodes = [], entities = [] }: AIChatWindowProps) {
+export function AIChatWindow({ project, nodes = [], entities = [] }: AIChatWindowProps) {
   const [selectorOpen, setSelectorOpen] = useState(false);
 
   const {
@@ -33,6 +35,7 @@ export function AIChatWindow({ nodes = [], entities = [] }: AIChatWindowProps) {
     toggleChatWindow,
     clearChatHistory,
     clearUserContexts,
+    setCurrentProject,
     settings,
   } = useAIStore();
 
@@ -40,6 +43,19 @@ export function AIChatWindow({ nodes = [], entities = [] }: AIChatWindowProps) {
   useEffect(() => {
     initializeAIStore();
   }, []);
+
+  // 设置当前项目信息
+  useEffect(() => {
+    if (project) {
+      setCurrentProject({
+        title: project.title,
+        description: project.description,
+      });
+    }
+    return () => {
+      setCurrentProject(null);
+    };
+  }, [project, setCurrentProject]);
 
   // 全局快捷键 Ctrl+Shift+A 呼出/收起 AI 浮窗
   useEffect(() => {

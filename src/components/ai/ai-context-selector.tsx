@@ -93,11 +93,30 @@ export function AIContextSelector({
   const handleAddNode = (node: Node) => {
     if (isNodeAdded(node.id)) return;
 
+    // 获取子节点名称（仅对 FOLDER 类型）
+    const childrenNames =
+      node.type === "FOLDER"
+        ? nodes
+            .filter((n) => n.parent_id === node.id)
+            .sort((a, b) => a.order.localeCompare(b.order))
+            .map((n) => `${n.type === "FOLDER" ? "📁" : "📄"} ${n.title}`)
+        : undefined;
+
+    // 获取故事时间（仅对 FILE 类型）
+    const timestamp =
+      node.type === "FILE"
+        ? (node.metadata as { timestamp?: string | null }).timestamp
+        : undefined;
+
     const contextItem: UserContextItem = {
       type: "node",
       nodeId: node.id,
       title: node.title,
-      content: node.content || node.summary || "",
+      nodeType: node.type,
+      content: node.content || "",
+      summary: node.summary || "",
+      timestamp,
+      childrenNames,
     };
     addUserContext(contextItem);
   };
@@ -109,8 +128,11 @@ export function AIContextSelector({
     const contextItem: UserContextItem = {
       type: "entity",
       entityId: entity.id,
+      entityType: entity.type,
       name: entity.name,
-      description: entity.description,
+      aliases: entity.aliases || [],
+      description: entity.description || "",
+      attributes: entity.attributes || {},
     };
     addUserContext(contextItem);
   };

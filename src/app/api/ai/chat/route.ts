@@ -5,9 +5,12 @@ import {
   validationErrorResponse,
   internalErrorResponse,
 } from "@/lib/api/response";
-import type { AIFunction, ChatMessage, UserContextItem } from "@/lib/ai/types";
-import { buildChatSystemPrompt } from "@/lib/ai/prompts";
-import { formatUserContexts } from "@/lib/ai/prompts";
+import type { AIFunction, ChatMessage, UserContextItem, ProjectInfo } from "@/lib/ai/types";
+import {
+  buildChatSystemPrompt,
+  formatUserContexts,
+  injectContextToUserMessage,
+} from "@/lib/ai/prompts";
 
 /**
  * AI Chat 请求 Schema
@@ -47,13 +50,23 @@ const chatRequestSchema = z.object({
   // 上下文相关
   context: z
     .object({
+      project: z
+        .object({
+          title: z.string(),
+          description: z.string().nullable().optional(),
+        })
+        .optional(),
       userContexts: z.array(
         z.union([
           z.object({
             type: z.literal("node"),
             nodeId: z.string(),
             title: z.string(),
+            nodeType: z.enum(["FOLDER", "FILE"]),
             content: z.string(),
+            summary: z.string(),
+            timestamp: z.string().nullable().optional(),
+            childrenNames: z.array(z.string()).optional(),
           }),
           z.object({
             type: z.literal("selection"),
@@ -62,8 +75,11 @@ const chatRequestSchema = z.object({
           z.object({
             type: z.literal("entity"),
             entityId: z.string(),
+            entityType: z.enum(["CHARACTER", "LOCATION", "ITEM"]),
             name: z.string(),
+            aliases: z.array(z.string()),
             description: z.string(),
+            attributes: z.record(z.unknown()),
           }),
         ])
       ),
@@ -122,15 +138,18 @@ export async function POST(request: NextRequest) {
     // 构建消息列表，注入 System Prompt
     let finalMessages: ChatMessage[] = [...messages];
 
-    // 对于聊天功能，注入 System Prompt
+    // 对于聊天功能，注入 System Prompt 和上下文
     if (aiFunction === "chat") {
       // 格式化用户上下文
       const contextInfo = context?.userContexts
         ? formatUserContexts(context.userContexts as UserContextItem[])
         : undefined;
 
-      // 构建 System Prompt
-      const systemPrompt = buildChatSystemPrompt(contextInfo);
+      // 获取项目信息
+      const projectInfo = context?.project as ProjectInfo | undefined;
+
+      // 构建 System Prompt（包含项目信息）
+      const systemPrompt = buildChatSystemPrompt(projectInfo);
 
       // 检查是否已有 system 消息
       const hasSystemMessage = finalMessages.some((m) => m.role === "system");
@@ -141,6 +160,21 @@ export async function POST(request: NextRequest) {
           { role: "system", content: systemPrompt },
           ...finalMessages,
         ];
+      }
+
+      // 如果有上下文，注入到最后一条 user 消息的开头
+      if (contextInfo) {
+        // 找到最后一条 user 消息的索引
+        const lastUserIndex = finalMessages.findLastIndex(
+          (m) => m.role === "user"
+        );
+        if (lastUserIndex !== -1) {
+          const originalMessage = finalMessages[lastUserIndex].content;
+          finalMessages[lastUserIndex] = {
+            role: "user",
+            content: injectContextToUserMessage(originalMessage, contextInfo),
+          };
+        }
       }
     }
 

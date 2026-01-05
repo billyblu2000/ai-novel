@@ -44,6 +44,7 @@ export function AIChatInput() {
     setCurrentFunction,
     selectedText,
     userContexts,
+    currentProject,
     settings,
     toggleJailbreak,
     isLoading,
@@ -87,15 +88,14 @@ export function AIChatInput() {
 
       // 构建上下文
       const context: AIContext = {
+        project: currentProject || undefined,
         userContexts: userContexts,
         relatedEntities: [],
         previousSummaries: [],
       };
 
-      const requestMessages = [
-        ...useAIStore.getState().chatHistory,
-        { role: "user" as const, content: trimmedInput },
-      ];
+      // 从 store 获取聊天历史（已包含刚添加的用户消息）
+      const requestMessages = [...useAIStore.getState().chatHistory];
 
       const requestBody = {
         function: currentFunction,
@@ -107,7 +107,7 @@ export function AIChatInput() {
         },
         messages: requestMessages,
         jailbreak: settings.jailbreakEnabled,
-        context: userContexts.length > 0 ? context : undefined,
+        context: currentProject || userContexts.length > 0 ? context : undefined,
         selectedText: selectedText || undefined,
         stream: true,
       };
@@ -182,6 +182,7 @@ export function AIChatInput() {
     input,
     currentFunction,
     userContexts,
+    currentProject,
     selectedText,
     settings.jailbreakEnabled,
     debugMode,
