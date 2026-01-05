@@ -1,9 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useAIStore } from "@/lib/stores/ai-store";
+import { useAIStore, type ModifyEnhancedContext } from "@/lib/stores/ai-store";
 import { Wand2, Expand, Minimize2, Sparkles, MessageSquare } from "lucide-react";
 import type { AIFunction } from "@/lib/ai/types";
+import type { Entity } from "@/types";
+
+/** 简化的节点信息（用于 AI 上下文增强） */
+interface NodeInfo {
+  id: string;
+  title: string;
+  summary?: string;
+}
 
 interface AIContextMenuProps {
   /** 选中的文字 */
@@ -14,6 +22,20 @@ interface AIContextMenuProps {
   visible: boolean;
   /** 关闭回调 */
   onClose: () => void;
+  /** 当前编辑器的完整内容（用于提取前后文） */
+  editorContent?: string;
+  /** 选中文本在编辑器中的位置（字符偏移） */
+  selectionStart?: number;
+  /** 选中文本在编辑器中的结束位置 */
+  selectionEnd?: number;
+  /** 当前场景节点 */
+  currentNode?: NodeInfo | null;
+  /** 父章节节点 */
+  parentNode?: NodeInfo | null;
+  /** 项目中的所有实体 */
+  entities?: Entity[];
+  /** 选中文本中包含的实体 ID 列表（从 mention 中提取） */
+  mentionedEntityIds?: string[];
 }
 
 interface MenuItem {
@@ -53,15 +75,80 @@ export function AIContextMenu({
   position,
   visible,
   onClose,
+  editorContent,
+  selectionStart,
+  selectionEnd,
+  currentNode,
+  parentNode,
+  entities,
+  mentionedEntityIds,
 }: AIContextMenuProps) {
   const [adjustedPosition, setAdjustedPosition] = useState(position);
 
   const {
     setCurrentFunction,
     addUserContext,
+    clearUserContexts,
+    clearModifyResult,
     toggleChatWindow,
     setSelectedText,
+    setModifyEnhancedContext,
+    contextEnhancementEnabled,
   } = useAIStore();
+
+  // 构建增强上下文
+  const buildEnhancedContext = useCallback((): ModifyEnhancedContext | null => {
+    if (!contextEnhancementEnabled) return null;
+
+    const context: ModifyEnhancedContext = {};
+
+    // 1. 提取前后文（各取约 200 字）
+    if (editorContent && selectionStart !== undefined && selectionEnd !== undefined) {
+      const maxContextLength = 200;
+      
+      // 前文：从选中位置往前取
+      const beforeStart = Math.max(0, selectionStart - maxContextLength);
+      const textBefore = editorContent.slice(beforeStart, selectionStart).trim();
+      if (textBefore) {
+        context.textBefore = textBefore;
+      }
+
+      // 后文：从选中位置往后取
+      const afterEnd = Math.min(editorContent.length, selectionEnd + maxContextLength);
+      const textAfter = editorContent.slice(selectionEnd, afterEnd).trim();
+      if (textAfter) {
+        context.textAfter = textAfter;
+      }
+    }
+
+    // 2. 当前场景摘要
+    if (currentNode?.summary) {
+      context.sceneSummary = currentNode.summary;
+    }
+
+    // 3. 当前章节摘要
+    if (parentNode?.summary) {
+      context.chapterSummary = parentNode.summary;
+    }
+
+    // 4. 关联实体 ID
+    if (mentionedEntityIds && mentionedEntityIds.length > 0) {
+      context.relatedEntityIds = mentionedEntityIds;
+    }
+
+    // 如果没有任何增强信息，返回 null
+    if (Object.keys(context).length === 0) return null;
+
+    return context;
+  }, [
+    contextEnhancementEnabled,
+    editorContent,
+    selectionStart,
+    selectionEnd,
+    currentNode,
+    parentNode,
+    mentionedEntityIds,
+  ]);
 
   // 调整菜单位置，确保不超出视口
   useEffect(() => {
@@ -94,25 +181,63 @@ export function AIContextMenu({
   // 处理菜单项点击
   const handleMenuClick = useCallback(
     (func: AIFunction) => {
-      // 1. 设置选中的文字
+      // 1. 清空之前的上下文和修改结果
+      clearUserContexts();
+      clearModifyResult();
+
+      // 2. 设置选中的文字
       setSelectedText(selectedText);
 
-      // 2. 添加选段作为上下文
+      // 3. 添加选段作为上下文
       addUserContext({
         type: "selection",
         text: selectedText,
       });
 
-      // 3. 设置当前功能
+      // 4. 构建并设置增强上下文
+      const enhancedContext = buildEnhancedContext();
+      setModifyEnhancedContext(enhancedContext);
+
+      // 5. 如果有关联实体，添加到用户上下文
+      if (enhancedContext?.relatedEntityIds && entities) {
+        for (const entityId of enhancedContext.relatedEntityIds) {
+          const entity = entities.find((e) => e.id === entityId);
+          if (entity) {
+            addUserContext({
+              type: "entity",
+              entityId: entity.id,
+              entityType: entity.type,
+              name: entity.name,
+              aliases: entity.aliases,
+              description: entity.description,
+              attributes: entity.attributes,
+            });
+          }
+        }
+      }
+
+      // 6. 设置当前功能
       setCurrentFunction(func);
 
-      // 4. 打开聊天窗口
+      // 7. 打开聊天窗口
       toggleChatWindow(true);
 
-      // 5. 关闭菜单
+      // 8. 关闭菜单
       onClose();
     },
-    [selectedText, setSelectedText, addUserContext, setCurrentFunction, toggleChatWindow, onClose]
+    [
+      selectedText,
+      entities,
+      clearUserContexts,
+      clearModifyResult,
+      setSelectedText,
+      addUserContext,
+      setCurrentFunction,
+      toggleChatWindow,
+      onClose,
+      buildEnhancedContext,
+      setModifyEnhancedContext,
+    ]
   );
 
   // 处理"添加为上下文"点击

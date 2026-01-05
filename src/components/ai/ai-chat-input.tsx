@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { useAIStore } from "@/lib/stores/ai-store";
-import { ArrowUp, Square, Loader2, ChevronDown, Lock, Unlock } from "lucide-react";
+import { ArrowUp, Square, Loader2, ChevronDown, Lock, Unlock, Sparkles } from "lucide-react";
 import { getModelForFunction } from "@/lib/ai/settings";
 import type { AIFunction, AIContext } from "@/lib/ai/types";
 import { parseModifyResult } from "@/lib/ai/prompts";
@@ -66,6 +66,9 @@ export function AIChatInput() {
     setLastRequestDebug,
     setModifyResult,
     updateModifyResultText,
+    modifyEnhancedContext,
+    contextEnhancementEnabled,
+    toggleContextEnhancement,
   } = useAIStore();
 
   const currentFunctionInfo = ALL_AI_FUNCTIONS.find((f) => f.id === currentFunction);
@@ -141,6 +144,7 @@ export function AIChatInput() {
         jailbreak: settings.jailbreakEnabled,
         context: currentProject || userContexts.length > 0 ? context : undefined,
         selectedText: selectedText || undefined,
+        enhancedContext: isModify ? modifyEnhancedContext : undefined,
         stream: true,
       };
 
@@ -248,6 +252,7 @@ export function AIChatInput() {
     userContexts,
     currentProject,
     selectedText,
+    modifyEnhancedContext,
     settings.jailbreakEnabled,
     debugMode,
     isLoading,
@@ -362,6 +367,19 @@ export function AIChatInput() {
                   <span>{currentFunctionInfo?.name}</span>
                   <span className="ml-auto text-[10px] text-muted-foreground">右键选中</span>
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => toggleContextEnhancement()}
+                  className={cn(
+                    "cursor-pointer",
+                    contextEnhancementEnabled && "bg-blue-500/10 text-blue-600"
+                  )}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>上下文增强</span>
+                  {contextEnhancementEnabled && (
+                    <span className="ml-auto text-[10px]">✓</span>
+                  )}
+                </DropdownMenuItem>
               </>
             )}
             <DropdownMenuSeparator />
@@ -441,11 +459,18 @@ export function AIChatInput() {
         <span className="text-[10px] text-muted-foreground/60">
           {isModifyFunction ? "Enter 开始处理" : "Enter 发送 · Shift+Enter 换行"}
         </span>
-        {settings.jailbreakEnabled && (
-          <span className="text-[10px] text-pink-500/80">
-            无限制模式
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {isModifyFunction && contextEnhancementEnabled && (
+            <span className="text-[10px] text-blue-500/80">
+              上下文增强
+            </span>
+          )}
+          {settings.jailbreakEnabled && (
+            <span className="text-[10px] text-pink-500/80">
+              无限制模式
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

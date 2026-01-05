@@ -12,6 +12,7 @@ import {
   injectContextToUserMessage,
   getModifySystemPrompt,
   buildModifyUserMessage,
+  formatModifyEnhancedContext,
 } from "@/lib/ai/prompts";
 
 /**
@@ -90,6 +91,16 @@ const chatRequestSchema = z.object({
     })
     .optional(),
   selectedText: z.string().optional(),
+  // 修改功能的增强上下文
+  enhancedContext: z
+    .object({
+      textBefore: z.string().optional(),
+      textAfter: z.string().optional(),
+      sceneSummary: z.string().optional(),
+      chapterSummary: z.string().optional(),
+      relatedEntityIds: z.array(z.string()).optional(),
+    })
+    .optional(),
 });
 
 export type ChatRequestBody = z.infer<typeof chatRequestSchema>;
@@ -153,9 +164,12 @@ export async function POST(request: NextRequest) {
       // 获取项目信息
       const projectInfo = context?.project as ProjectInfo | undefined;
 
-      // 格式化用户上下文
-      const contextInfo = context?.userContexts
-        ? formatUserContexts(context.userContexts as UserContextItem[])
+      // 格式化用户上下文（排除 selection 类型，因为选中文本已经是要处理的内容）
+      const nonSelectionContexts = context?.userContexts?.filter(
+        (ctx) => ctx.type !== "selection"
+      );
+      const contextInfo = nonSelectionContexts?.length
+        ? formatUserContexts(nonSelectionContexts as UserContextItem[])
         : undefined;
 
       // 获取对应的 System Prompt
@@ -164,10 +178,24 @@ export async function POST(request: NextRequest) {
         projectInfo
       );
 
+      // 格式化增强上下文
+      const enhancedContext = parseResult.data.enhancedContext;
+      const enhancedContextInfo = enhancedContext
+        ? formatModifyEnhancedContext(enhancedContext)
+        : undefined;
+
+      // 合并上下文信息：实体上下文 + 增强上下文
+      let combinedContextInfo: string | undefined;
+      if (contextInfo && enhancedContextInfo) {
+        combinedContextInfo = `${contextInfo}\n\n---\n\n${enhancedContextInfo}`;
+      } else {
+        combinedContextInfo = contextInfo || enhancedContextInfo;
+      }
+
       // 构建用户消息
       const userMessage = buildModifyUserMessage(
         selectedText,
-        contextInfo,
+        combinedContextInfo,
         // 如果用户有额外输入，作为额外指令
         messages.length > 0 && messages[messages.length - 1].role === "user"
           ? messages[messages.length - 1].content

@@ -12,6 +12,13 @@ import { EntityHoverCard } from "@/components/entities/entity-hover-card";
 import { EntityContextMenu } from "@/components/entities/entity-context-menu";
 import { AIContextMenu } from "@/components/ai/ai-context-menu";
 
+/** 简化的节点信息（用于 AI 上下文增强） */
+interface NodeInfo {
+  id: string;
+  title: string;
+  summary?: string;
+}
+
 interface EntityAwareEditorProps {
   content: string;
   placeholder?: string;
@@ -25,6 +32,10 @@ interface EntityAwareEditorProps {
   ignoredEntities?: string[];
   onIgnoreEntity?: (entityName: string) => void;
   onViewEntityDetails?: (entity: Entity) => void;
+  /** 当前场景节点（用于 AI 上下文增强） */
+  currentNode?: NodeInfo | null;
+  /** 父章节节点（用于 AI 上下文增强） */
+  parentNode?: NodeInfo | null;
 }
 
 export function EntityAwareEditor({
@@ -40,6 +51,8 @@ export function EntityAwareEditor({
   ignoredEntities = [],
   onIgnoreEntity,
   onViewEntityDetails,
+  currentNode,
+  parentNode,
 }: EntityAwareEditorProps) {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedContentRef = useRef(content);
@@ -57,6 +70,8 @@ export function EntityAwareEditor({
   const [aiMenuVisible, setAiMenuVisible] = useState(false);
   const [aiMenuPosition, setAiMenuPosition] = useState({ x: 0, y: 0 });
   const [aiMenuSelectedText, setAiMenuSelectedText] = useState("");
+  const [aiMenuSelectionRange, setAiMenuSelectionRange] = useState<{ start: number; end: number } | null>(null);
+  const [aiMenuMentionedEntityIds, setAiMenuMentionedEntityIds] = useState<string[]>([]);
 
   const handleEntityHover = useCallback(
     (entity: Entity | null, rect: DOMRect | null) => {
@@ -102,30 +117,6 @@ export function EntityAwareEditor({
       onViewEntityDetails?.(entity);
     },
     [onViewEntityDetails]
-  );
-
-  // Handle right-click for AI context menu (text selection)
-  const handleEditorContextMenu = useCallback(
-    (e: React.MouseEvent) => {
-      // 获取选中的文字
-      const selection = window.getSelection();
-      const selectedText = selection?.toString().trim();
-
-      // 如果有选中文字且不是在实体上右键，显示 AI 菜单
-      if (selectedText && selectedText.length > 0) {
-        // 检查是否在实体高亮上右键（实体有自己的右键菜单）
-        const target = e.target as HTMLElement;
-        if (target.closest("[data-entity-id]")) {
-          return; // 让实体右键菜单处理
-        }
-
-        e.preventDefault();
-        setAiMenuSelectedText(selectedText);
-        setAiMenuPosition({ x: e.clientX, y: e.clientY });
-        setAiMenuVisible(true);
-      }
-    },
-    []
   );
 
   const editor = useEditor({
@@ -189,6 +180,76 @@ export function EntityAwareEditor({
       }, 3000);
     },
   });
+
+  // Handle right-click for AI context menu (text selection)
+  const handleEditorContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (!editor) return;
+
+      // 获取选中的文字
+      const selection = window.getSelection();
+      const selectedText = selection?.toString().trim();
+
+      // 如果有选中文字且不是在实体上右键，显示 AI 菜单
+      if (selectedText && selectedText.length > 0) {
+        // 检查是否在实体高亮上右键（实体有自己的右键菜单）
+        const target = e.target as HTMLElement;
+        if (target.closest("[data-entity-id]")) {
+          return; // 让实体右键菜单处理
+        }
+
+        e.preventDefault();
+
+        // 获取编辑器中的选中范围
+        const { from, to } = editor.state.selection;
+
+        // 提取选中范围内的实体 mention
+        const mentionedEntityIds: string[] = [];
+        editor.state.doc.nodesBetween(from, to, (node) => {
+          // 检查节点的 marks 中是否有 entityHighlight
+          if (node.marks) {
+            for (const mark of node.marks) {
+              if (mark.type.name === "entityHighlight" && mark.attrs.entityId) {
+                if (!mentionedEntityIds.includes(mark.attrs.entityId)) {
+                  mentionedEntityIds.push(mark.attrs.entityId);
+                }
+              }
+            }
+          }
+          return true;
+        });
+
+        // 计算纯文本位置（用于前后文提取）
+        // 注意：这里的 from/to 是 ProseMirror 位置，需要转换为纯文本位置
+        let textPosition = 0;
+        let selectionStart = 0;
+        let selectionEnd = 0;
+        let foundStart = false;
+
+        editor.state.doc.descendants((node, pos) => {
+          if (node.isText && node.text) {
+            const nodeEnd = pos + node.nodeSize;
+            if (!foundStart && from >= pos && from <= nodeEnd) {
+              selectionStart = textPosition + (from - pos);
+              foundStart = true;
+            }
+            if (to >= pos && to <= nodeEnd) {
+              selectionEnd = textPosition + (to - pos);
+            }
+            textPosition += node.text.length;
+          }
+          return true;
+        });
+
+        setAiMenuSelectedText(selectedText);
+        setAiMenuPosition({ x: e.clientX, y: e.clientY });
+        setAiMenuSelectionRange({ start: selectionStart, end: selectionEnd });
+        setAiMenuMentionedEntityIds(mentionedEntityIds);
+        setAiMenuVisible(true);
+      }
+    },
+    [editor]
+  );
 
   // Update entities when they change
   useEffect(() => {
@@ -363,6 +424,13 @@ export function EntityAwareEditor({
           position={aiMenuPosition}
           visible={true}
           onClose={() => setAiMenuVisible(false)}
+          editorContent={editor?.state.doc.textContent}
+          selectionStart={aiMenuSelectionRange?.start}
+          selectionEnd={aiMenuSelectionRange?.end}
+          currentNode={currentNode}
+          parentNode={parentNode}
+          entities={entities}
+          mentionedEntityIds={aiMenuMentionedEntityIds}
         />
       )}
     </div>

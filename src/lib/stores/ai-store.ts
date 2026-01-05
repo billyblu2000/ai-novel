@@ -37,6 +37,22 @@ export interface ModifyResultState {
 }
 
 /**
+ * 修改功能的增强上下文
+ */
+export interface ModifyEnhancedContext {
+  /** 选中文本的前文 */
+  textBefore?: string;
+  /** 选中文本的后文 */
+  textAfter?: string;
+  /** 当前场景摘要 */
+  sceneSummary?: string;
+  /** 当前章节摘要 */
+  chapterSummary?: string;
+  /** 关联的实体 ID 列表 */
+  relatedEntityIds?: string[];
+}
+
+/**
  * AI Store 状态接口
  */
 interface AIState {
@@ -61,6 +77,10 @@ interface AIState {
   // ========== 修改功能状态 ==========
   /** 修改功能结果 */
   modifyResult: ModifyResultState | null;
+  /** 上下文增强是否启用 */
+  contextEnhancementEnabled: boolean;
+  /** 修改功能的增强上下文 */
+  modifyEnhancedContext: ModifyEnhancedContext | null;
 
   // ========== 请求状态 ==========
   /** 是否正在加载 */
@@ -120,6 +140,8 @@ interface AIState {
   setModifyResult: (result: ModifyResultState | null) => void;
   updateModifyResultText: (text: string) => void;
   clearModifyResult: () => void;
+  toggleContextEnhancement: (enabled?: boolean) => void;
+  setModifyEnhancedContext: (context: ModifyEnhancedContext | null) => void;
 
   // 请求状态
   setLoading: (loading: boolean) => void;
@@ -152,6 +174,8 @@ export const useAIStore = create<AIState>((set, get) => ({
   selectedText: null,
 
   modifyResult: null,
+  contextEnhancementEnabled: false,
+  modifyEnhancedContext: null,
 
   isLoading: false,
   isStreaming: false,
@@ -261,7 +285,19 @@ export const useAIStore = create<AIState>((set, get) => ({
 
   // 清空修改结果
   clearModifyResult: () => {
-    set({ modifyResult: null });
+    set({ modifyResult: null, modifyEnhancedContext: null });
+  },
+
+  // 切换上下文增强
+  toggleContextEnhancement: (enabled) => {
+    set((state) => ({
+      contextEnhancementEnabled: enabled !== undefined ? enabled : !state.contextEnhancementEnabled,
+    }));
+  },
+
+  // 设置修改功能的增强上下文
+  setModifyEnhancedContext: (context) => {
+    set({ modifyEnhancedContext: context });
   },
 
   // 设置加载状态

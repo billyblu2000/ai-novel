@@ -55,6 +55,12 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
     return !!rootMeta.system_root && rootMeta.root_kind === "NOTES";
   }, [node.id, nodes]);
 
+  // 获取父节点（章节）
+  const parentNode = useMemo(() => {
+    if (!node.parent_id || !nodes.length) return null;
+    return nodes.find((n) => n.id === node.parent_id) || null;
+  }, [node.parent_id, nodes]);
+
   // Track last synced mentions to avoid unnecessary updates
   const lastMentionsSyncRef = useRef<string>("");
 
@@ -317,6 +323,8 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
             ignoredEntities={ignoredEntities}
             onIgnoreEntity={handleIgnoreEntity}
             onViewEntityDetails={handleViewEntityDetails}
+            currentNode={node}
+            parentNode={parentNode}
           />
 
           {/* Word Count Footer */}

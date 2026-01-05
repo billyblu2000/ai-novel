@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useAIStore } from "@/lib/stores/ai-store";
 import {
@@ -53,6 +53,11 @@ export function AIResultCard({
   const [showOriginal, setShowOriginal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [applied, setApplied] = useState(false);
+
+  // 当原始文本变化时（切换了不同的修改任务），重置应用状态
+  useEffect(() => {
+    setApplied(false);
+  }, [originalText]);
 
   // 复制到剪贴板
   const handleCopy = useCallback(async () => {

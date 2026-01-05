@@ -115,7 +115,7 @@ export function AIChatWindow({ project, nodes = [], entities = [] }: AIChatWindo
       <div
         className={cn(
           "fixed bottom-6 right-6 z-50",
-          "w-[420px] h-[580px]",
+          "w-[480px] h-[680px]",
           "flex flex-col",
           "animate-in slide-in-from-bottom-4 fade-in duration-300",
           // 破限模式特效边框

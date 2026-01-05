@@ -136,3 +136,52 @@ export function formatSelectedText(selectedText: string): string {
 ${selectedText}
 \`\`\``;
 }
+
+/**
+ * 修改功能的增强上下文
+ */
+export interface ModifyEnhancedContextInput {
+  /** 选中文本的前文 */
+  textBefore?: string;
+  /** 选中文本的后文 */
+  textAfter?: string;
+  /** 当前场景摘要 */
+  sceneSummary?: string;
+  /** 当前章节摘要 */
+  chapterSummary?: string;
+}
+
+/**
+ * 格式化修改功能的增强上下文
+ * @param context 增强上下文
+ * @returns 格式化后的文本，如果没有上下文则返回 undefined
+ */
+export function formatModifyEnhancedContext(
+  context: ModifyEnhancedContextInput
+): string | undefined {
+  const parts: string[] = [];
+
+  // 章节摘要
+  if (context.chapterSummary) {
+    parts.push(`**当前章节摘要**：${context.chapterSummary}`);
+  }
+
+  // 场景摘要
+  if (context.sceneSummary) {
+    parts.push(`**当前场景摘要**：${context.sceneSummary}`);
+  }
+
+  // 前文
+  if (context.textBefore) {
+    parts.push(`**前文**：\n${context.textBefore}`);
+  }
+
+  // 后文
+  if (context.textAfter) {
+    parts.push(`**后文**：\n${context.textAfter}`);
+  }
+
+  if (parts.length === 0) return undefined;
+
+  return parts.join("\n\n");
+}
