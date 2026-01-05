@@ -79,7 +79,7 @@ const chatRequestSchema = z.object({
             name: z.string(),
             aliases: z.array(z.string()),
             description: z.string(),
-            attributes: z.record(z.unknown()),
+            attributes: z.record(z.string(), z.unknown()),
           }),
         ])
       ),
