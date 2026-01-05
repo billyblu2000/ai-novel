@@ -199,7 +199,7 @@ export function AIChatWindow({ project, nodes = [], entities = [] }: AIChatWindo
                 </Button>
               </div>
             ) : (
-              <AIChatMessages />
+              <AIChatMessages projectId={project?.id} />
             )}
           </div>
 

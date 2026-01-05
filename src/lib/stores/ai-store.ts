@@ -368,9 +368,12 @@ export const useAIStore = create<AIState>((set, get) => ({
   setStreaming: (streaming) => {
     set({ isStreaming: streaming });
     if (!streaming) {
-      // 流式结束时，将内容添加到聊天历史
+      // 流式结束时，将内容添加到聊天历史（仅普通聊天，修改/规划功能不添加）
       const content = get().streamingContent;
-      if (content) {
+      const modifyResult = get().modifyResult;
+      const planResult = get().planResult;
+      // 只有普通聊天才将流式内容添加到历史
+      if (content && !modifyResult && !planResult) {
         set((state) => ({
           chatHistory: [
             ...state.chatHistory,
@@ -379,6 +382,9 @@ export const useAIStore = create<AIState>((set, get) => ({
           streamingContent: "",
           hasUnreadMessage: !state.isChatWindowOpen,
         }));
+      } else {
+        // 修改/规划功能：只清空流式内容
+        set({ streamingContent: "" });
       }
     }
   },
