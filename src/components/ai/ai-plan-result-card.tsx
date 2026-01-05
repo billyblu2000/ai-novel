@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { useAIStore, type PlanResultState } from "@/lib/stores/ai-store";
-import { useNodes } from "@/lib/hooks";
+import { useNodes, getSiblings, calculateNewOrder } from "@/lib/hooks";
 import {
   Check,
   Copy,
@@ -45,15 +45,18 @@ export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
 
     setApplying(true);
     try {
-      // 获取目标节点下已有的子节点名称
+      // 获取目标节点下已有的子节点
+      const existingSiblings = getSiblings(nodes, targetNodeId);
       const existingChildTitles = new Set(
-        nodes
-          .filter((n) => n.parent_id === targetNodeId)
-          .map((n) => n.title.trim().toLowerCase())
+        existingSiblings.map((n) => n.title.trim().toLowerCase())
       );
 
       let createdCount = 0;
       let skippedCount = 0;
+
+      // 预先计算所有需要创建的节点的 order
+      // 这样即使是快速连续创建，order 也不会冲突
+      let currentSiblings = [...existingSiblings];
 
       // 按顺序创建子节点（使用 mutateAsync 确保顺序执行）
       for (const child of children) {
@@ -63,15 +66,26 @@ export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
           continue;
         }
 
+        // 计算新节点的 order（追加到末尾）
+        const order = calculateNewOrder(currentSiblings, currentSiblings.length);
+
         await createNodeAsync({
           projectId,
           parentId: targetNodeId,
           type: child.type,
           title: child.title,
+          order, // 显式传递 order
           // FOLDER 使用 outline，FILE 使用 summary
           outline: child.type === "FOLDER" ? child.summary : undefined,
           summary: child.type === "FILE" ? child.summary : undefined,
         });
+
+        // 更新本地 siblings 列表，以便下一个节点计算正确的 order
+        currentSiblings.push({
+          id: `temp-${Date.now()}-${createdCount}`,
+          order,
+        } as any);
+
         createdCount++;
       }
 

@@ -136,6 +136,16 @@ export function useNodes(projectId: string | null) {
       await queryClient.cancelQueries({ queryKey });
       const previousNodes = queryClient.getQueryData<Node[]>(queryKey);
 
+      // Calculate order for optimistic update if not provided
+      let tempOrder = input.order;
+      if (!tempOrder && previousNodes) {
+        const siblings = previousNodes
+          .filter((n) => n.parent_id === input.parentId)
+          .sort((a, b) => a.order.localeCompare(b.order));
+        const lastOrder = siblings.length > 0 ? siblings[siblings.length - 1].order : null;
+        tempOrder = generateKeyBetween(lastOrder, null);
+      }
+
       // Optimistic update
       const tempNode: Node = {
         id: `temp-${Date.now()}`,
@@ -144,9 +154,9 @@ export function useNodes(projectId: string | null) {
         type: input.type,
         title: input.title,
         content: "",
-        outline: "",
-        summary: "",
-        order: input.order || "a0",
+        outline: input.outline || "",
+        summary: input.summary || "",
+        order: tempOrder || "a0",
         metadata: input.type === "FILE"
           ? { status: "DRAFT" as const, word_count: 0, ignored_entities: [] }
           : { collapsed: false },
