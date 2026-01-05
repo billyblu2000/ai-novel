@@ -6,23 +6,33 @@ import { useAIStore } from "@/lib/stores/ai-store";
 import { Sparkles, User } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
+import { AIResultCard } from "./ai-result-card";
 
 /**
  * AI 聊天消息列表组件
  * ChatGPT 风格的现代设计
  */
 export function AIChatMessages() {
-  const { chatHistory, isStreaming, streamingContent, isLoading } = useAIStore();
+  const { chatHistory, isStreaming, streamingContent, isLoading, modifyResult, clearModifyResult } = useAIStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // 自动滚动到底部
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatHistory, streamingContent]);
+  }, [chatHistory, streamingContent, modifyResult]);
+
+  // 处理应用修改
+  const handleApplyModify = (text: string) => {
+    // 触发全局事件，让编辑器监听并应用修改
+    const event = new CustomEvent("ai-apply-modify", {
+      detail: { text, originalText: modifyResult?.originalText },
+    });
+    window.dispatchEvent(event);
+  };
 
   // 空状态
-  if (chatHistory.length === 0 && !isStreaming && !isLoading) {
+  if (chatHistory.length === 0 && !isStreaming && !isLoading && !modifyResult) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
         <div className="space-y-4">
@@ -62,8 +72,8 @@ export function AIChatMessages() {
           />
         ))}
 
-        {/* 流式输出中的消息 */}
-        {isStreaming && streamingContent && (
+        {/* 流式输出中的消息（普通聊天） */}
+        {isStreaming && streamingContent && !modifyResult && (
           <MessageBubble
             role="assistant"
             content={streamingContent}
@@ -71,9 +81,29 @@ export function AIChatMessages() {
           />
         )}
 
+        {/* 修改功能结果卡片 */}
+        {modifyResult && (
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 h-7 w-7 rounded-lg bg-foreground flex items-center justify-center">
+              <Sparkles className="h-3.5 w-3.5 text-background" />
+            </div>
+            <div className="flex-1">
+              <AIResultCard
+                originalText={modifyResult.originalText}
+                modifiedText={modifyResult.modifiedText}
+                explanation={modifyResult.explanation}
+                functionType={modifyResult.functionType}
+                onApply={handleApplyModify}
+                onDismiss={clearModifyResult}
+                isStreaming={modifyResult.isStreaming}
+              />
+            </div>
+          </div>
+        )}
+
         {/* 加载中状态 - AI思考动画 */}
-        {/* 显示条件：正在加载 或 (正在流式输出但内容为空) */}
-        {(isLoading || (isStreaming && !streamingContent)) && (
+        {/* 显示条件：正在加载 或 (正在流式输出但内容为空且没有修改结果) */}
+        {(isLoading || (isStreaming && !streamingContent && !modifyResult)) && (
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0 h-7 w-7 rounded-lg bg-foreground flex items-center justify-center">
               <Sparkles className="h-3.5 w-3.5 text-background animate-pulse" />

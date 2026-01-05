@@ -10,6 +10,8 @@ import {
   buildChatSystemPrompt,
   formatUserContexts,
   injectContextToUserMessage,
+  getModifySystemPrompt,
+  buildModifyUserMessage,
 } from "@/lib/ai/prompts";
 
 /**
@@ -138,8 +140,48 @@ export async function POST(request: NextRequest) {
     // 构建消息列表，注入 System Prompt
     let finalMessages: ChatMessage[] = [...messages];
 
+    // 修改功能（润色/扩写/缩写）
+    const isModifyFunction = ["polish", "expand", "compress"].includes(aiFunction);
+
+    if (isModifyFunction) {
+      // 获取选中的文本
+      const selectedText = parseResult.data.selectedText;
+      if (!selectedText) {
+        return validationErrorResponse("修改功能需要提供选中的文本");
+      }
+
+      // 获取项目信息
+      const projectInfo = context?.project as ProjectInfo | undefined;
+
+      // 格式化用户上下文
+      const contextInfo = context?.userContexts
+        ? formatUserContexts(context.userContexts as UserContextItem[])
+        : undefined;
+
+      // 获取对应的 System Prompt
+      const systemPrompt = getModifySystemPrompt(
+        aiFunction as "polish" | "expand" | "compress",
+        projectInfo
+      );
+
+      // 构建用户消息
+      const userMessage = buildModifyUserMessage(
+        selectedText,
+        contextInfo,
+        // 如果用户有额外输入，作为额外指令
+        messages.length > 0 && messages[messages.length - 1].role === "user"
+          ? messages[messages.length - 1].content
+          : undefined
+      );
+
+      // 构建最终消息列表
+      finalMessages = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ];
+    }
     // 对于聊天功能，注入 System Prompt 和上下文
-    if (aiFunction === "chat") {
+    else if (aiFunction === "chat") {
       // 格式化用户上下文
       const contextInfo = context?.userContexts
         ? formatUserContexts(context.userContexts as UserContextItem[])

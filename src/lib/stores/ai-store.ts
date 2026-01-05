@@ -21,6 +21,22 @@ import {
 } from "@/lib/ai/settings";
 
 /**
+ * 修改功能结果
+ */
+export interface ModifyResultState {
+  /** 原始文本 */
+  originalText: string;
+  /** 修改后的文本 */
+  modifiedText: string;
+  /** 修改说明 */
+  explanation?: string;
+  /** 功能类型 */
+  functionType: "polish" | "expand" | "compress";
+  /** 是否正在流式输出 */
+  isStreaming: boolean;
+}
+
+/**
  * AI Store 状态接口
  */
 interface AIState {
@@ -41,6 +57,10 @@ interface AIState {
   userContexts: UserContextItem[];
   /** 选中的文字（用于修改功能） */
   selectedText: string | null;
+
+  // ========== 修改功能状态 ==========
+  /** 修改功能结果 */
+  modifyResult: ModifyResultState | null;
 
   // ========== 请求状态 ==========
   /** 是否正在加载 */
@@ -96,6 +116,11 @@ interface AIState {
   addMessage: (message: ChatMessage) => void;
   clearChatHistory: () => void;
 
+  // 修改功能相关
+  setModifyResult: (result: ModifyResultState | null) => void;
+  updateModifyResultText: (text: string) => void;
+  clearModifyResult: () => void;
+
   // 请求状态
   setLoading: (loading: boolean) => void;
   setStreaming: (streaming: boolean) => void;
@@ -125,6 +150,8 @@ export const useAIStore = create<AIState>((set, get) => ({
   currentFunction: "chat",
   userContexts: [],
   selectedText: null,
+
+  modifyResult: null,
 
   isLoading: false,
   isStreaming: false,
@@ -211,7 +238,30 @@ export const useAIStore = create<AIState>((set, get) => ({
 
   // 清空聊天历史
   clearChatHistory: () => {
-    set({ chatHistory: [], streamingContent: "" });
+    set({ chatHistory: [], streamingContent: "", modifyResult: null });
+  },
+
+  // 设置修改结果
+  setModifyResult: (result) => {
+    set({ modifyResult: result });
+  },
+
+  // 更新修改结果文本（用于流式输出）
+  updateModifyResultText: (text) => {
+    set((state) => {
+      if (!state.modifyResult) return state;
+      return {
+        modifyResult: {
+          ...state.modifyResult,
+          modifiedText: text,
+        },
+      };
+    });
+  },
+
+  // 清空修改结果
+  clearModifyResult: () => {
+    set({ modifyResult: null });
   },
 
   // 设置加载状态

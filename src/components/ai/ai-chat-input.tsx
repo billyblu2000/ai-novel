@@ -6,6 +6,7 @@ import { useAIStore } from "@/lib/stores/ai-store";
 import { ArrowUp, Square, Loader2, ChevronDown, Lock, Unlock } from "lucide-react";
 import { getModelForFunction } from "@/lib/ai/settings";
 import type { AIFunction, AIContext } from "@/lib/ai/types";
+import { parseModifyResult } from "@/lib/ai/prompts";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +33,9 @@ const ALL_AI_FUNCTIONS: {
 
 // 下拉菜单中可选的功能（不包含修改功能，修改功能只能通过右键菜单进入）
 const SELECTABLE_FUNCTIONS = ALL_AI_FUNCTIONS.filter((f) => !f.requiresSelection);
+
+// 修改功能列表
+const MODIFY_FUNCTIONS = ["polish", "expand", "compress"] as const;
 
 /**
  * AI 聊天输入组件
@@ -60,6 +64,8 @@ export function AIChatInput() {
     setError,
     debugMode,
     setLastRequestDebug,
+    setModifyResult,
+    updateModifyResultText,
   } = useAIStore();
 
   const currentFunctionInfo = ALL_AI_FUNCTIONS.find((f) => f.id === currentFunction);
@@ -68,7 +74,17 @@ export function AIChatInput() {
   // 发送消息
   const handleSend = useCallback(async () => {
     const trimmedInput = input.trim();
-    if (!trimmedInput || isLoading || isStreaming) return;
+    
+    // 修改功能可以不需要输入（直接处理选中文本）
+    const isModify = MODIFY_FUNCTIONS.includes(currentFunction as typeof MODIFY_FUNCTIONS[number]);
+    
+    // 普通聊天需要输入，修改功能需要选中文本
+    if (!isModify && !trimmedInput) return;
+    if (isModify && !selectedText) {
+      setError("请先选中需要修改的文本");
+      return;
+    }
+    if (isLoading || isStreaming) return;
 
     const modelConfig = getModelForFunction(currentFunction);
     if (!modelConfig) {
@@ -76,7 +92,11 @@ export function AIChatInput() {
       return;
     }
 
-    addMessage({ role: "user", content: trimmedInput });
+    // 对于普通聊天，添加用户消息
+    if (!isModify && trimmedInput) {
+      addMessage({ role: "user", content: trimmedInput });
+    }
+    
     setInput("");
     setLoading(true);
     setError(null);
@@ -97,8 +117,17 @@ export function AIChatInput() {
         previousSummaries: [],
       };
 
-      // 从 store 获取聊天历史（已包含刚添加的用户消息）
-      const requestMessages = [...useAIStore.getState().chatHistory];
+      // 构建请求消息
+      let requestMessages;
+      if (isModify) {
+        // 修改功能：如果有额外输入，作为用户指令
+        requestMessages = trimmedInput 
+          ? [{ role: "user" as const, content: trimmedInput }]
+          : [];
+      } else {
+        // 普通聊天：从 store 获取聊天历史
+        requestMessages = [...useAIStore.getState().chatHistory];
+      }
 
       const requestBody = {
         function: currentFunction,
@@ -134,10 +163,22 @@ export function AIChatInput() {
 
       setLoading(false);
       setStreaming(true);
-      setStreamingContent("");
+      
+      // 修改功能：初始化修改结果状态
+      if (isModify) {
+        setModifyResult({
+          originalText: selectedText!,
+          modifiedText: "",
+          functionType: currentFunction as "polish" | "expand" | "compress",
+          isStreaming: true,
+        });
+      } else {
+        setStreamingContent("");
+      }
 
       const decoder = new TextDecoder();
       let buffer = "";
+      let fullContent = "";
 
       while (true) {
         const { done, value } = await reader.read();
@@ -160,13 +201,33 @@ export function AIChatInput() {
               }
               // 处理内容
               if (parsed.content) {
-                appendStreamingContent(parsed.content);
+                fullContent += parsed.content;
+                if (isModify) {
+                  // 修改功能：更新修改结果
+                  updateModifyResultText(fullContent);
+                } else {
+                  // 普通聊天：追加流式内容
+                  appendStreamingContent(parsed.content);
+                }
               }
             } catch {
               // 忽略解析错误
             }
           }
         }
+      }
+
+      // 流式结束后处理
+      if (isModify) {
+        // 解析修改结果（JSON 格式）
+        const result = parseModifyResult(fullContent);
+        setModifyResult({
+          originalText: selectedText!,
+          modifiedText: result.result,
+          explanation: result.explanation,
+          functionType: currentFunction as "polish" | "expand" | "compress",
+          isStreaming: false,
+        });
       }
 
       setStreaming(false);
@@ -197,6 +258,9 @@ export function AIChatInput() {
     setStreamingContent,
     appendStreamingContent,
     setError,
+    setModifyResult,
+    updateModifyResultText,
+    setLastRequestDebug,
   ]);
 
   const handleStop = useCallback(() => {
@@ -219,6 +283,28 @@ export function AIChatInput() {
     const textarea = e.target;
     textarea.style.height = "32px";
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
+  };
+
+  // 修改功能的占位符文本
+  const getPlaceholder = () => {
+    if (settings.jailbreakEnabled) {
+      return "无限制模式：尽情发挥想象力...";
+    }
+    if (isModifyFunction) {
+      return "可选：输入额外的修改要求...";
+    }
+    return "输入消息...";
+  };
+
+  // 发送按钮是否可用
+  const canSend = () => {
+    if (isLoading) return false;
+    if (isModifyFunction) {
+      // 修改功能：有选中文本即可发送
+      return !!selectedText;
+    }
+    // 普通聊天：需要输入内容
+    return !!input.trim();
   };
 
   return (
@@ -302,11 +388,7 @@ export function AIChatInput() {
           value={input}
           onChange={handleInput}
           onKeyDown={handleKeyDown}
-          placeholder={
-            settings.jailbreakEnabled
-              ? "无限制模式：尽情发挥想象力..."
-              : "输入消息..."
-          }
+          placeholder={getPlaceholder()}
           className={cn(
             "flex-1 bg-transparent border-0 resize-none overflow-hidden",
             "text-sm leading-8 placeholder:text-muted-foreground/60",
@@ -334,16 +416,16 @@ export function AIChatInput() {
         ) : (
           <button
             onClick={handleSend}
-            disabled={!input.trim() || isLoading}
+            disabled={!canSend()}
             className={cn(
               "flex-shrink-0 h-8 w-8 rounded-xl",
               "flex items-center justify-center",
               "transition-all duration-150",
-              input.trim() && !isLoading
+              canSend()
                 ? "bg-violet-500 hover:bg-violet-600 text-white"
                 : "bg-muted text-muted-foreground cursor-not-allowed"
             )}
-            title="发送"
+            title={isModifyFunction ? "开始处理" : "发送"}
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -357,7 +439,7 @@ export function AIChatInput() {
       {/* 底部提示 */}
       <div className="px-3 pb-2 flex items-center justify-between">
         <span className="text-[10px] text-muted-foreground/60">
-          Enter 发送 · Shift+Enter 换行
+          {isModifyFunction ? "Enter 开始处理" : "Enter 发送 · Shift+Enter 换行"}
         </span>
         {settings.jailbreakEnabled && (
           <span className="text-[10px] text-pink-500/80">

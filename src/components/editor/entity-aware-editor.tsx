@@ -257,6 +257,71 @@ export function EntityAwareEditor({
     return () => document.removeEventListener("click", handleClick);
   }, []);
 
+  // Listen for AI apply modify event
+  useEffect(() => {
+    const handleApplyModify = (e: CustomEvent<{ text: string; originalText: string }>) => {
+      if (!editor) return;
+
+      const { text, originalText } = e.detail;
+
+      // 获取当前编辑器内容
+      const currentContent = editor.getHTML();
+
+      // 尝试查找并替换原文
+      // 方法1：如果有选中内容，直接替换选中内容
+      const { from, to } = editor.state.selection;
+      if (from !== to) {
+        // 有选中内容，直接替换
+        editor.chain().focus().deleteSelection().insertContent(text).run();
+        return;
+      }
+
+      // 方法2：尝试在文档中查找原文并替换
+      // 将原文转换为纯文本进行搜索
+      const docText = editor.state.doc.textContent;
+      const originalTextClean = originalText.trim();
+
+      if (docText.includes(originalTextClean)) {
+        // 找到原文在文档中的位置
+        let pos = 0;
+        let found = false;
+
+        editor.state.doc.descendants((node, nodePos) => {
+          if (found) return false;
+
+          if (node.isText && node.text) {
+            const index = node.text.indexOf(originalTextClean);
+            if (index !== -1) {
+              pos = nodePos + index;
+              found = true;
+              return false;
+            }
+          }
+          return true;
+        });
+
+        if (found) {
+          editor
+            .chain()
+            .focus()
+            .setTextSelection({ from: pos, to: pos + originalTextClean.length })
+            .deleteSelection()
+            .insertContent(text)
+            .run();
+          return;
+        }
+      }
+
+      // 方法3：如果找不到原文，在光标位置插入
+      editor.chain().focus().insertContent(text).run();
+    };
+
+    window.addEventListener("ai-apply-modify", handleApplyModify as EventListener);
+    return () => {
+      window.removeEventListener("ai-apply-modify", handleApplyModify as EventListener);
+    };
+  }, [editor]);
+
   // Get character/word count
   const characterCount = editor?.storage.characterCount?.characters() || 0;
   const wordCount = editor?.storage.characterCount?.words() || 0;

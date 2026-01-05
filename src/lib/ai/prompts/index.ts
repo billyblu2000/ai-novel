@@ -7,4 +7,13 @@ export {
   buildChatSystemPrompt,
   injectContextToUserMessage,
 } from "./chat";
-export { formatUserContexts } from "./context-formatter";
+export { formatUserContexts, formatSelectedText } from "./context-formatter";
+export {
+  POLISH_SYSTEM_PROMPT,
+  EXPAND_SYSTEM_PROMPT,
+  COMPRESS_SYSTEM_PROMPT,
+  getModifySystemPrompt,
+  buildModifyUserMessage,
+  parseModifyResult,
+  type ModifyResult,
+} from "./modify";
