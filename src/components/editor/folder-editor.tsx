@@ -211,25 +211,13 @@ export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProp
           {/* Outline Section (manuscript only) */}
           {!isNotesMode && (
             <div className="mb-8">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-medium flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  章节大纲
-                </h2>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAIPlan}
-                  disabled={!canUsePlan}
-                  title={canUsePlan ? "使用AI规划子章节" : "请先填写章节大纲"}
-                >
-                  <Sparkles className="h-4 w-4 mr-1" />
-                  AI规划
-                </Button>
-              </div>
+              <h2 className="text-lg font-medium mb-3 flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                大纲
+              </h2>
               <TiptapEditor
                 content={outline}
-                placeholder="在这里编写章节大纲和写作计划..."
+                placeholder="在这里编写大纲和写作计划..."
                 onUpdate={handleOutlineUpdate}
                 onSave={handleAutoSave}
                 className="min-h-[200px] p-4 rounded-lg border bg-muted/30"
@@ -260,6 +248,18 @@ export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProp
                   <Plus className="h-4 w-4 mr-1" />
                   {isNotesMode ? "新建文档" : "新建场景"}
                 </Button>
+                {!isNotesMode && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAIPlan}
+                    disabled={!canUsePlan}
+                    title={canUsePlan ? "使用AI自动新建子节点" : "请先填写大纲"}
+                  >
+                    <Sparkles className="h-4 w-4 mr-1" />
+                    AI自动新建
+                  </Button>
+                )}
               </div>
             </div>
 

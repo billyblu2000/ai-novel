@@ -80,9 +80,7 @@ export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
       } else {
         toast.success(`成功创建 ${createdCount} 个子节点`);
       }
-      clearPlanResult();
-      setCurrentFunction("chat");
-      clearUserContexts();
+      // 应用成功后保留卡片，用户可以手动删除
     } catch (error) {
       console.error("Failed to apply plan result:", error);
       toast.error("应用失败，请重试");
@@ -95,9 +93,6 @@ export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
     projectId,
     nodes,
     createNodeAsync,
-    clearPlanResult,
-    setCurrentFunction,
-    clearUserContexts,
   ]);
 
   // 复制规划结果

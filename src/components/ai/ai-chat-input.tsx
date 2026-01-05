@@ -60,6 +60,12 @@ export function AIChatInput() {
     if (isPlan && !planContext) return;
     if (isLoading || isStreaming) return;
 
+    // 立即清空输入（不等待请求完成）
+    setInput("");
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "32px";
+    }
+
     // 构建上下文
     const context: AIContext = {
       project: currentProject || undefined,
@@ -83,12 +89,6 @@ export function AIChatInput() {
       targetNodeId,
       jailbreak: settings.jailbreakEnabled,
     });
-
-    // 清空输入
-    setInput("");
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "32px";
-    }
   }, [
     input,
     currentFunction,
