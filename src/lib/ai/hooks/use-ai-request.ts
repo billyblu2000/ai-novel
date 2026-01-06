@@ -326,10 +326,16 @@ export function useAIRequest() {
         let buffer = "";
         let fullContent = "";
         let prefill = ""; // 破限模式下的 prefill 内容
+        let chunkCount = 0;
+
+        console.log("[Frontend] Starting to read stream...");
 
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) {
+            console.log(`[Frontend] Stream done. Total chunks: ${chunkCount}, Content length: ${fullContent.length}`);
+            break;
+          }
 
           buffer += decoder.decode(value, { stream: true });
 
@@ -339,7 +345,10 @@ export function useAIRequest() {
           for (const line of lines) {
             if (line.startsWith("data: ")) {
               const data = line.slice(6);
-              if (data === "[DONE]") continue;
+              if (data === "[DONE]") {
+                console.log("[Frontend] Received [DONE] signal");
+                continue;
+              }
               try {
                 const parsed = JSON.parse(data);
                 // 处理 debug 信息和 prefill
@@ -349,9 +358,11 @@ export function useAIRequest() {
                 // 保存 prefill（破限模式下需要拼接到完整内容前）
                 if (parsed.prefill) {
                   prefill = parsed.prefill;
+                  console.log("[Frontend] Received prefill:", prefill.slice(0, 50));
                 }
                 // 处理内容
                 if (parsed.content) {
+                  chunkCount++;
                   fullContent += parsed.content;
 
                   if (isChat) {
@@ -370,6 +381,8 @@ export function useAIRequest() {
             }
           }
         }
+
+        console.log(`[Frontend] Final content length: ${fullContent.length}, with prefill: ${(prefill + fullContent).length}`);
 
         // 流式结束后处理
         // 将 prefill 拼接到完整内容前（用于解析 JSON）

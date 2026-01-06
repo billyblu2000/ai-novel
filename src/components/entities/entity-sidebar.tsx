@@ -93,7 +93,7 @@ export function EntitySidebar({ projectId }: EntitySidebarProps) {
       <Tabs
         value={mode}
         onValueChange={(v) => setMode(v as SidebarMode)}
-        className="flex-1 flex flex-col"
+        className="flex-1 flex flex-col min-h-0"
       >
         <TabsList className="mx-4 mt-3 grid w-auto grid-cols-2">
           <TabsTrigger value="context" className="text-xs">
@@ -120,7 +120,7 @@ export function EntitySidebar({ projectId }: EntitySidebarProps) {
         )}
 
         {/* Context Mode */}
-        <TabsContent value="context" className="flex-1 mt-0 overflow-hidden">
+        <TabsContent value="context" className="flex-1 mt-0 overflow-hidden min-h-0">
           <ScrollArea className="h-full">
             <div className="p-4 space-y-2">
               {!activeNodeId ? (
@@ -154,7 +154,7 @@ export function EntitySidebar({ projectId }: EntitySidebarProps) {
         </TabsContent>
 
         {/* Browse Mode */}
-        <TabsContent value="browse" className="flex-1 mt-0 overflow-hidden">
+        <TabsContent value="browse" className="flex-1 mt-0 overflow-hidden min-h-0">
           <ScrollArea className="h-full">
             <div className="p-4 space-y-4">
               {isLoading ? (

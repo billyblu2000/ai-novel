@@ -24,9 +24,8 @@ import { toast } from "sonner";
 import { useAIStore, initializeAIStore } from "@/lib/stores/ai-store";
 import {
   getAllProviderInfo,
-  getProvider,
   getRecommendedModels,
-} from "@/lib/ai/providers";
+} from "@/lib/ai/providers/client";
 import { updateGeminiSettings } from "@/lib/ai/settings";
 import type { AIFunction, AIModel, FunctionModelConfig } from "@/lib/ai/types";
 import {
@@ -141,15 +140,20 @@ export function AISettings() {
       setTestResults((prev) => ({ ...prev, [testKey]: null }));
 
       try {
-        const provider = getProvider(providerId);
-        if (!provider) {
-          throw new Error("Provider not found");
-        }
+        // 通过 API 验证，避免在客户端使用 Node.js 模块
+        const response = await fetch("/api/ai/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            providerId,
+            apiKey: apiKeyToTest,
+            baseUrl: config?.baseUrl,
+          }),
+        });
 
-        const isValid = await provider.validateKey(
-          apiKeyToTest,
-          config.baseUrl
-        );
+        const result = await response.json();
+        const isValid = result.success && result.data?.valid;
+
         setTestResults((prev) => ({ ...prev, [testKey]: isValid }));
 
         if (isValid) {

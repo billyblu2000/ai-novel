@@ -6,6 +6,43 @@ import type {
   ChatResponse,
   ProviderMessage,
 } from "../types";
+import { ProxyAgent, fetch as undiciFetch } from "undici";
+
+/**
+ * 获取代理配置的 fetch 函数
+ * 如果设置了 HTTPS_PROXY 或 HTTP_PROXY 环境变量，则使用代理
+ */
+function getProxyAgent(): ProxyAgent | undefined {
+  const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+  if (proxyUrl) {
+    return new ProxyAgent(proxyUrl);
+  }
+  return undefined;
+}
+
+/**
+ * 使用代理发送请求
+ */
+async function fetchWithProxy(
+  url: string,
+  init?: RequestInit
+): Promise<Response> {
+  const proxyAgent = getProxyAgent();
+  
+  if (proxyAgent) {
+    // 使用 undici 的 fetch 和代理
+    const response = await undiciFetch(url, {
+      ...init,
+      dispatcher: proxyAgent,
+    } as Parameters<typeof undiciFetch>[1]);
+    
+    // 转换为标准 Response
+    return response as unknown as Response;
+  }
+  
+  // 无代理时使用原生 fetch
+  return fetch(url, init);
+}
 
 /**
  * OpenAI 兼容 API 的基类
@@ -53,7 +90,7 @@ export abstract class OpenAICompatibleProvider implements AIProvider {
   async listModels(apiKey: string, baseUrl?: string): Promise<AIModel[]> {
     const url = `${this.getBaseUrl(baseUrl)}/models`;
 
-    const response = await fetch(url, {
+    const response = await fetchWithProxy(url, {
       method: "GET",
       headers: this.buildHeaders(apiKey),
     });
@@ -87,7 +124,10 @@ export abstract class OpenAICompatibleProvider implements AIProvider {
 
     const body = this.buildRequestBody(config, params, true);
 
-    const response = await fetch(url, {
+    const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+    console.log(`[${this.id}] Starting stream request to ${url}${proxyUrl ? ` (via proxy: ${proxyUrl})` : ''}`);
+
+    const response = await fetchWithProxy(url, {
       method: "POST",
       headers: this.buildHeaders(config.apiKey),
       body: JSON.stringify(body),
@@ -95,6 +135,7 @@ export abstract class OpenAICompatibleProvider implements AIProvider {
 
     if (!response.ok) {
       const error = await response.text();
+      console.error(`[${this.id}] Request failed: ${response.status}`, error);
       throw new Error(`Chat request failed: ${response.status} - ${error}`);
     }
 
@@ -105,11 +146,16 @@ export abstract class OpenAICompatibleProvider implements AIProvider {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    let chunkCount = 0;
+    let totalContent = "";
 
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          console.log(`[${this.id}] Stream ended normally. Total chunks: ${chunkCount}, Content length: ${totalContent.length}`);
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
 
@@ -119,21 +165,56 @@ export abstract class OpenAICompatibleProvider implements AIProvider {
 
         for (const line of lines) {
           const trimmed = line.trim();
-          if (!trimmed || trimmed === "data: [DONE]") continue;
+          if (!trimmed) continue;
+          
+          if (trimmed === "data: [DONE]") {
+            console.log(`[${this.id}] Received [DONE] signal`);
+            continue;
+          }
 
           if (trimmed.startsWith("data: ")) {
             try {
               const json = JSON.parse(trimmed.slice(6));
               const content = json.choices?.[0]?.delta?.content;
+              const finishReason = json.choices?.[0]?.finish_reason;
+              
+              // 记录 finish_reason（可能是 stop, length, content_filter, safety 等）
+              if (finishReason) {
+                console.log(`[${this.id}] ⚠️ FINISH_REASON: ${finishReason} (content_filter/safety=审核拦截, stop=正常结束, length=超长度)`);
+                // 如果是内容过滤，记录完整的响应以便调试
+                if (finishReason === 'content_filter' || finishReason === 'safety' || finishReason === 'SAFETY') {
+                  console.warn(`[${this.id}] 🚫 内容被审核拦截! 完整响应:`, JSON.stringify(json, null, 2));
+                }
+              }
+              
+              // 检查是否有错误信息
+              if (json.error) {
+                console.error(`[${this.id}] ❌ API Error in stream:`, JSON.stringify(json.error));
+              }
+              
               if (content) {
+                chunkCount++;
+                totalContent += content;
                 yield content;
               }
-            } catch {
-              // 忽略解析错误
+            } catch (e) {
+              // 记录解析错误，可能包含重要信息
+              console.warn(`[${this.id}] Failed to parse SSE data:`, trimmed.slice(0, 200), e);
             }
+          } else {
+            // 非标准格式的行，可能是错误信息
+            console.log(`[${this.id}] Non-data line:`, trimmed.slice(0, 200));
           }
         }
       }
+      
+      // 处理 buffer 中剩余的内容
+      if (buffer.trim()) {
+        console.log(`[${this.id}] Remaining buffer:`, buffer.slice(0, 200));
+      }
+    } catch (error) {
+      console.error(`[${this.id}] Stream error:`, error);
+      throw error;
     } finally {
       reader.releaseLock();
     }
@@ -150,7 +231,7 @@ export abstract class OpenAICompatibleProvider implements AIProvider {
 
     const body = this.buildRequestBody(config, params, false);
 
-    const response = await fetch(url, {
+    const response = await fetchWithProxy(url, {
       method: "POST",
       headers: this.buildHeaders(config.apiKey),
       body: JSON.stringify(body),
@@ -188,7 +269,7 @@ export abstract class OpenAICompatibleProvider implements AIProvider {
       model: params.model || config.model,
       messages: this.formatMessages(params.messages),
       temperature: params.temperature ?? 0.7,
-      max_tokens: params.maxTokens,
+      max_tokens: params.maxTokens || 4096, // 默认 4K tokens
       stream,
     };
   }

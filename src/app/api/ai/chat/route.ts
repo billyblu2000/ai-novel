@@ -242,6 +242,8 @@ export async function POST(request: NextRequest) {
       const readableStream = new ReadableStream({
         async start(controller) {
           try {
+            console.log(`[API] Starting stream for ${aiFunction}, provider: ${providerConfig.id}, model: ${providerConfig.model}, jailbreak: ${jailbreak}`);
+            
             // 首先发送 debug 信息（包含实际发送给模型的完整消息）
             const debugData = JSON.stringify({
               debug: {
@@ -259,17 +261,24 @@ export async function POST(request: NextRequest) {
             controller.enqueue(encoder.encode(`data: ${debugData}\n\n`));
 
             const generator = provider.chat(config, params);
+            let chunkCount = 0;
+            let totalLength = 0;
 
             for await (const chunk of generator) {
+              chunkCount++;
+              totalLength += chunk.length;
               // 发送 SSE 格式的数据
               const data = JSON.stringify({ content: chunk });
               controller.enqueue(encoder.encode(`data: ${data}\n\n`));
             }
 
+            console.log(`[API] Stream completed. Chunks: ${chunkCount}, Total length: ${totalLength}`);
+            
             // 发送完成信号
             controller.enqueue(encoder.encode("data: [DONE]\n\n"));
             controller.close();
           } catch (error) {
+            console.error(`[API] Stream error:`, error);
             // 发送错误信息
             const errorMessage =
               error instanceof Error ? error.message : "未知错误";

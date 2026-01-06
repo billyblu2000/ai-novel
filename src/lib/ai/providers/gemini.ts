@@ -101,9 +101,11 @@ export class GeminiProvider extends OpenAICompatibleProvider {
 
     // Gemini 不支持某些参数，需要移除
     // 同时确保 model 使用正确的格式
+    // 设置默认 max_tokens，避免输出过短
     return {
       ...body,
       model: params.model || config.model || "gemini-3-flash-preview",
+      max_tokens: params.maxTokens || 8192, // Gemini 默认 8K tokens
     };
   }
 
