@@ -5,32 +5,25 @@ import {
   validationErrorResponse,
   internalErrorResponse,
 } from "@/lib/api/response";
-import type { AIFunction, ChatMessage, UserContextItem, ProjectInfo } from "@/lib/ai/types";
+import type { AIFunction, UserContextItem, ProjectInfo, SpecialFunctionType } from "@/lib/ai/types";
+import type { ProviderMessage } from "@/lib/ai/types";
 import {
-  buildChatSystemPrompt,
-  formatUserContexts,
-  injectContextToUserMessage,
-  getModifySystemPrompt,
-  buildModifyUserMessage,
-  formatModifyEnhancedContext,
-  getPlanSystemPrompt,
-  buildPlanUserMessage,
-  type PlanContext,
+  buildUnifiedSystemPrompt,
+  buildSpecialRequestUserMessage,
+  buildChatUserMessage,
 } from "@/lib/ai/prompts";
 
 /**
  * AI Chat 请求 Schema
  */
 const chatRequestSchema = z.object({
-  function: z.enum([
-    "polish",
-    "expand",
-    "compress",
-    "continue",
-    "plan",
-    "summarize",
-    "chat",
-  ] as const),
+  // 请求类型：chat（普通聊天）或 special（特殊功能）
+  requestType: z.enum(["chat", "special"]),
+
+  // 特殊功能类型（仅当 requestType 为 special 时需要）
+  functionType: z
+    .enum(["polish", "expand", "compress", "plan", "continue", "summarize"])
+    .optional(),
 
   provider: z.object({
     id: z.string(),
@@ -39,6 +32,7 @@ const chatRequestSchema = z.object({
     model: z.string(),
   }),
 
+  // 历史消息（用于保持对话上下文）
   messages: z
     .array(
       z.object({
@@ -46,93 +40,58 @@ const chatRequestSchema = z.object({
         content: z.string(),
       })
     )
-    .min(1, "消息不能为空"),
+    .default([]),
 
+  // 当前用户输入
+  userInput: z.string().optional(),
+
+  // 特殊功能的 payload
+  payload: z.unknown().optional(),
+
+  // 用户上下文
+  userContexts: z
+    .array(
+      z.union([
+        z.object({
+          type: z.literal("node"),
+          nodeId: z.string(),
+          title: z.string(),
+          nodeType: z.enum(["FOLDER", "FILE"]),
+          content: z.string(),
+          summary: z.string(),
+          timestamp: z.string().nullable().optional(),
+          childrenNames: z.array(z.string()).optional(),
+        }),
+        z.object({
+          type: z.literal("selection"),
+          text: z.string(),
+        }),
+        z.object({
+          type: z.literal("entity"),
+          entityId: z.string(),
+          entityType: z.enum(["CHARACTER", "LOCATION", "ITEM"]),
+          name: z.string(),
+          aliases: z.array(z.string()),
+          description: z.string(),
+          attributes: z.record(z.string(), z.unknown()),
+        }),
+      ])
+    )
+    .optional(),
+
+  // 项目信息
+  project: z
+    .object({
+      title: z.string(),
+      description: z.string().nullable().optional(),
+    })
+    .optional(),
+
+  // 其他选项
   jailbreak: z.boolean().optional(),
   stream: z.boolean().optional().default(true),
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().positive().optional(),
-
-  // 上下文相关
-  context: z
-    .object({
-      project: z
-        .object({
-          title: z.string(),
-          description: z.string().nullable().optional(),
-        })
-        .optional(),
-      userContexts: z.array(
-        z.union([
-          z.object({
-            type: z.literal("node"),
-            nodeId: z.string(),
-            title: z.string(),
-            nodeType: z.enum(["FOLDER", "FILE"]),
-            content: z.string(),
-            summary: z.string(),
-            timestamp: z.string().nullable().optional(),
-            childrenNames: z.array(z.string()).optional(),
-          }),
-          z.object({
-            type: z.literal("selection"),
-            text: z.string(),
-          }),
-          z.object({
-            type: z.literal("entity"),
-            entityId: z.string(),
-            entityType: z.enum(["CHARACTER", "LOCATION", "ITEM"]),
-            name: z.string(),
-            aliases: z.array(z.string()),
-            description: z.string(),
-            attributes: z.record(z.string(), z.unknown()),
-          }),
-        ])
-      ),
-      relatedEntities: z.array(z.any()).optional(),
-      previousSummaries: z.array(z.string()).optional(),
-    })
-    .optional(),
-  selectedText: z.string().optional(),
-  // 修改功能的增强上下文
-  enhancedContext: z
-    .object({
-      textBefore: z.string().optional(),
-      textAfter: z.string().optional(),
-      sceneSummary: z.string().optional(),
-      chapterSummary: z.string().optional(),
-      relatedEntityIds: z.array(z.string()).optional(),
-    })
-    .optional(),
-  // 规划功能的上下文
-  planContext: z
-    .object({
-      nodeName: z.string(),
-      nodeOutline: z.string(),
-      existingChildren: z.array(
-        z.object({
-          title: z.string(),
-          summary: z.string(),
-          type: z.enum(["FOLDER", "FILE"]),
-        })
-      ),
-      parentNode: z
-        .object({
-          name: z.string(),
-          outline: z.string(),
-        })
-        .optional(),
-      relatedEntities: z
-        .array(
-          z.object({
-            name: z.string(),
-            type: z.string(),
-            description: z.string(),
-          })
-        )
-        .optional(),
-    })
-    .optional(),
 });
 
 export type ChatRequestBody = z.infer<typeof chatRequestSchema>;
@@ -157,13 +116,17 @@ export async function POST(request: NextRequest) {
     }
 
     const {
-      function: aiFunction,
+      requestType,
+      functionType,
       provider: providerConfig,
       messages,
+      userInput,
+      payload,
+      userContexts,
+      project,
       stream = true,
       temperature,
       maxTokens,
-      context,
     } = parseResult.data;
 
     // 获取 Provider
@@ -180,136 +143,52 @@ export async function POST(request: NextRequest) {
       model: providerConfig.model,
     };
 
-    // 构建消息列表，注入 System Prompt
-    let finalMessages: ChatMessage[] = [...messages];
+    // 构建统一的 System Prompt
+    const systemPrompt = buildUnifiedSystemPrompt(project as ProjectInfo | undefined);
 
-    // 修改功能（润色/扩写/缩写）
-    const isModifyFunction = ["polish", "expand", "compress"].includes(aiFunction);
-    // 规划功能
-    const isPlanFunction = aiFunction === "plan";
+    // 构建最终消息列表
+    let finalMessages: ProviderMessage[] = [
+      { role: "system", content: systemPrompt },
+    ];
 
-    if (isModifyFunction) {
-      // 获取选中的文本
-      const selectedText = parseResult.data.selectedText;
-      if (!selectedText) {
-        return validationErrorResponse("修改功能需要提供选中的文本");
+    // 添加历史消息（排除旧的 system 消息）
+    const historyMessages = messages.filter((m) => m.role !== "system");
+    finalMessages.push(...historyMessages);
+
+    // 根据请求类型构建当前用户消息
+    if (requestType === "special") {
+      // 特殊功能请求
+      if (!functionType) {
+        return validationErrorResponse("特殊功能请求需要提供 functionType");
       }
 
-      // 获取项目信息
-      const projectInfo = context?.project as ProjectInfo | undefined;
-
-      // 格式化用户上下文（排除 selection 类型，因为选中文本已经是要处理的内容）
-      const nonSelectionContexts = context?.userContexts?.filter(
-        (ctx) => ctx.type !== "selection"
-      );
-      const contextInfo = nonSelectionContexts?.length
-        ? formatUserContexts(nonSelectionContexts as UserContextItem[])
-        : undefined;
-
-      // 获取对应的 System Prompt
-      const systemPrompt = getModifySystemPrompt(
-        aiFunction as "polish" | "expand" | "compress",
-        projectInfo
+      // 构建特殊功能的用户消息
+      const specialUserMessage = buildSpecialRequestUserMessage(
+        functionType as SpecialFunctionType,
+        payload,
+        userInput,
+        userContexts as UserContextItem[] | undefined
       );
 
-      // 格式化增强上下文
-      const enhancedContext = parseResult.data.enhancedContext;
-      const enhancedContextInfo = enhancedContext
-        ? formatModifyEnhancedContext(enhancedContext)
-        : undefined;
-
-      // 合并上下文信息：实体上下文 + 增强上下文
-      let combinedContextInfo: string | undefined;
-      if (contextInfo && enhancedContextInfo) {
-        combinedContextInfo = `${contextInfo}\n\n---\n\n${enhancedContextInfo}`;
-      } else {
-        combinedContextInfo = contextInfo || enhancedContextInfo;
+      finalMessages.push({ role: "user", content: specialUserMessage });
+    } else {
+      // 普通聊天请求
+      if (!userInput) {
+        return validationErrorResponse("聊天请求需要提供 userInput");
       }
 
-      // 构建用户消息
-      const userMessage = buildModifyUserMessage(
-        selectedText,
-        combinedContextInfo,
-        // 如果用户有额外输入，作为额外指令
-        messages.length > 0 && messages[messages.length - 1].role === "user"
-          ? messages[messages.length - 1].content
-          : undefined
+      // 构建普通聊天的用户消息（可能带上下文）
+      const chatUserMessage = buildChatUserMessage(
+        userInput,
+        userContexts as UserContextItem[] | undefined
       );
 
-      // 构建最终消息列表
-      finalMessages = [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage },
-      ];
+      finalMessages.push({ role: "user", content: chatUserMessage });
     }
-    // 规划功能
-    else if (isPlanFunction) {
-      // 获取规划上下文
-      const planContext = parseResult.data.planContext;
-      if (!planContext) {
-        return validationErrorResponse("规划功能需要提供规划上下文");
-      }
 
-      // 获取项目信息
-      const projectInfo = context?.project as ProjectInfo | undefined;
-
-      // 构建 System Prompt
-      const systemPrompt = getPlanSystemPrompt(projectInfo);
-
-      // 构建用户消息
-      const userMessage = buildPlanUserMessage(
-        planContext as PlanContext,
-        // 如果用户有额外输入，作为额外指令
-        messages.length > 0 && messages[messages.length - 1].role === "user"
-          ? messages[messages.length - 1].content
-          : undefined
-      );
-
-      // 构建最终消息列表
-      finalMessages = [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage },
-      ];
-    }
-    // 对于聊天功能，注入 System Prompt 和上下文
-    else if (aiFunction === "chat") {
-      // 格式化用户上下文
-      const contextInfo = context?.userContexts
-        ? formatUserContexts(context.userContexts as UserContextItem[])
-        : undefined;
-
-      // 获取项目信息
-      const projectInfo = context?.project as ProjectInfo | undefined;
-
-      // 构建 System Prompt（包含项目信息）
-      const systemPrompt = buildChatSystemPrompt(projectInfo);
-
-      // 检查是否已有 system 消息
-      const hasSystemMessage = finalMessages.some((m) => m.role === "system");
-
-      if (!hasSystemMessage) {
-        // 在消息列表开头添加 system 消息
-        finalMessages = [
-          { role: "system", content: systemPrompt },
-          ...finalMessages,
-        ];
-      }
-
-      // 如果有上下文，注入到最后一条 user 消息的开头
-      if (contextInfo) {
-        // 找到最后一条 user 消息的索引
-        const lastUserIndex = finalMessages.findLastIndex(
-          (m) => m.role === "user"
-        );
-        if (lastUserIndex !== -1) {
-          const originalMessage = finalMessages[lastUserIndex].content;
-          finalMessages[lastUserIndex] = {
-            role: "user",
-            content: injectContextToUserMessage(originalMessage, contextInfo),
-          };
-        }
-      }
-    }
+    // 确定实际的 AI 功能（用于 debug 信息）
+    const aiFunction: AIFunction =
+      requestType === "special" && functionType ? functionType : "chat";
 
     const params = {
       messages: finalMessages,
@@ -330,8 +209,9 @@ export async function POST(request: NextRequest) {
               debug: {
                 timestamp: Date.now(),
                 function: aiFunction,
+                requestType,
                 messages: finalMessages,
-                context: context,
+                userContexts,
                 provider: providerConfig.id,
                 model: providerConfig.model,
               },

@@ -4,7 +4,7 @@ import type {
   ProviderConfig,
   ChatParams,
   ChatResponse,
-  ChatMessage,
+  ProviderMessage,
 } from "../types";
 
 /**
@@ -198,7 +198,7 @@ export abstract class OpenAICompatibleProvider implements AIProvider {
    * 子类可以覆盖此方法以提供自定义格式
    */
   protected formatMessages(
-    messages: ChatMessage[]
+    messages: ProviderMessage[]
   ): Array<{ role: string; content: string }> {
     return messages.map((msg) => ({
       role: msg.role,

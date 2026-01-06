@@ -5,5 +5,5 @@ export { AIContextTags } from "./ai-context-tags";
 export { AIContextSelector } from "./ai-context-selector";
 export { AIContextMenu } from "./ai-context-menu";
 export { AIDebugPanel, AIDebugToggle } from "./ai-debug-panel";
-export { AIResultCard, AIResultMessage } from "./ai-result-card";
 export { AIPlanResultCard } from "./ai-plan-result-card";
+export { AIModifyResultCard } from "./ai-modify-result-card";

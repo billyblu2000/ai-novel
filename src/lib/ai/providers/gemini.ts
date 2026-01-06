@@ -1,5 +1,5 @@
 import { OpenAICompatibleProvider } from "./base";
-import type { AIModel, ProviderConfig, ChatParams, ChatMessage } from "../types";
+import type { AIModel, ProviderConfig, ChatParams, ProviderMessage } from "../types";
 
 /**
  * Google Gemini Provider
@@ -101,7 +101,7 @@ export class GeminiProvider extends OpenAICompatibleProvider {
    * Gemini 对 system 消息有特殊处理
    */
   protected formatMessages(
-    messages: ChatMessage[]
+    messages: ProviderMessage[]
   ): Array<{ role: string; content: string }> {
     // Gemini OpenAI 兼容 API 支持 system role
     return messages.map((msg) => ({

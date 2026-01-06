@@ -3,29 +3,10 @@
  */
 
 export {
-  CHAT_SYSTEM_PROMPT,
-  buildChatSystemPrompt,
-  injectContextToUserMessage,
-} from "./chat";
-export {
+  UNIFIED_SYSTEM_PROMPT,
+  buildUnifiedSystemPrompt,
+  getTaskDescription,
   formatUserContexts,
-  formatSelectedText,
-  formatModifyEnhancedContext,
-} from "./context-formatter";
-export {
-  POLISH_SYSTEM_PROMPT,
-  EXPAND_SYSTEM_PROMPT,
-  COMPRESS_SYSTEM_PROMPT,
-  getModifySystemPrompt,
-  buildModifyUserMessage,
-  parseModifyResult,
-  type ModifyResult,
-} from "./modify";
-export {
-  getPlanSystemPrompt,
-  buildPlanUserMessage,
-  parsePlanResult,
-  type PlanContext,
-  type PlannedChild,
-  type PlanResult,
-} from "./plan";
+  buildSpecialRequestUserMessage,
+  buildChatUserMessage,
+} from "./unified";

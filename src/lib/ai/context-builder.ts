@@ -9,9 +9,9 @@ import type {
   UserContextItem,
   ProjectInfo,
   AIContext,
+  PlanPayload,
 } from "@/lib/ai/types";
 import type { Entity, Node } from "@/types";
-import type { PlanContext } from "@/lib/ai/prompts/plan";
 
 /**
  * 构建增强上下文的参数
@@ -166,8 +166,9 @@ export interface BuildPlanContextParams {
 
 /**
  * 构建规划功能的上下文
+ * 返回 PlanPayload 类型（不含 nodeId）
  */
-export function buildPlanContext(params: BuildPlanContextParams): PlanContext {
+export function buildPlanContext(params: BuildPlanContextParams): Omit<PlanPayload, "nodeId"> {
   const {
     currentNode,
     allNodes,
@@ -186,7 +187,7 @@ export function buildPlanContext(params: BuildPlanContextParams): PlanContext {
       type: child.type as "FOLDER" | "FILE",
     }));
 
-  const context: PlanContext = {
+  const context: Omit<PlanPayload, "nodeId"> = {
     nodeName: currentNode.title,
     nodeOutline: currentNode.outline || "",
     existingChildren,

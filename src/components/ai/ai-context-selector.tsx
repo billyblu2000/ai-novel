@@ -19,7 +19,6 @@ import {
   Package,
   Search,
   Check,
-  ChevronRight,
 } from "lucide-react";
 import type { Node, Entity } from "@/types";
 import type { UserContextItem } from "@/lib/ai/types";
@@ -50,7 +49,7 @@ export function AIContextSelector({
 }: AIContextSelectorProps) {
   const [activeTab, setActiveTab] = useState<"nodes" | "entities">("nodes");
   const [searchQuery, setSearchQuery] = useState("");
-  const { userContexts, addUserContext } = useAIStore();
+  const { pendingContexts, addPendingContext } = useAIStore();
 
   // 过滤节点
   const filteredNodes = useMemo(() => {
@@ -77,14 +76,14 @@ export function AIContextSelector({
 
   // 检查节点是否已添加
   const isNodeAdded = (nodeId: string) => {
-    return userContexts.some(
+    return pendingContexts.some(
       (ctx) => ctx.type === "node" && ctx.nodeId === nodeId
     );
   };
 
   // 检查实体是否已添加
   const isEntityAdded = (entityId: string) => {
-    return userContexts.some(
+    return pendingContexts.some(
       (ctx) => ctx.type === "entity" && ctx.entityId === entityId
     );
   };
@@ -118,7 +117,7 @@ export function AIContextSelector({
       timestamp,
       childrenNames,
     };
-    addUserContext(contextItem);
+    addPendingContext(contextItem);
   };
 
   // 添加实体上下文
@@ -134,7 +133,7 @@ export function AIContextSelector({
       description: entity.description || "",
       attributes: entity.attributes || {},
     };
-    addUserContext(contextItem);
+    addPendingContext(contextItem);
   };
 
   // 构建节点树结构用于显示
@@ -212,7 +211,7 @@ export function AIContextSelector({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[70vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>添加上下文</DialogTitle>
+          <DialogTitle>添加参考内容</DialogTitle>
         </DialogHeader>
 
         {/* 搜索框 */}
@@ -345,9 +344,9 @@ export function AIContextSelector({
         </Tabs>
 
         {/* 已选数量提示 */}
-        {userContexts.length > 0 && (
+        {pendingContexts.length > 0 && (
           <div className="text-xs text-muted-foreground text-center pt-2 border-t">
-            已添加 {userContexts.length} 个上下文
+            已添加 {pendingContexts.length} 个参考内容
           </div>
         )}
       </DialogContent>

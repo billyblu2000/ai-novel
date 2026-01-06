@@ -2,12 +2,12 @@
 
 import { useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { useAIStore, type PlanResultState } from "@/lib/stores/ai-store";
+import { useAIStore } from "@/lib/stores/ai-store";
+import { useAIRequest } from "@/lib/ai/hooks";
 import { useNodes, getSiblings, calculateNewOrder } from "@/lib/hooks";
 import {
   Check,
   Copy,
-  Trash2,
   Loader2,
   FolderPlus,
   FileText,
@@ -17,24 +17,36 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import type { SpecialResultMessage, PlanResult, PlanPayload } from "@/lib/ai/types";
+import { isSpecialRequestMessage } from "@/lib/ai/types";
 
 interface AIPlanResultCardProps {
-  result: PlanResultState;
+  message: SpecialResultMessage<"plan">;
   projectId: string;
 }
 
 /**
  * AI 规划结果卡片
- * 显示规划的子节点列表，支持应用/复制/删除
+ * 显示规划的子节点列表，支持应用/复制
  */
-export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
-  const { clearPlanResult, setCurrentFunction, clearUserContexts } = useAIStore();
+export function AIPlanResultCard({ message, projectId }: AIPlanResultCardProps) {
+  const { result, applied, requestMessageId } = message;
+  const { children, explanation } = result as PlanResult;
+
+  const { chatHistory } = useAIStore();
+  const { markAsApplied } = useAIRequest();
   const { nodes, createNodeAsync, isCreating } = useNodes(projectId);
+
   const [copied, setCopied] = useState(false);
   const [applying, setApplying] = useState(false);
   const [expanded, setExpanded] = useState(true);
 
-  const { children, explanation, isStreaming, targetNodeId } = result;
+  // 从请求消息中获取目标节点 ID
+  const requestMessage = chatHistory.find((m) => m.id === requestMessageId);
+  const targetNodeId =
+    requestMessage && isSpecialRequestMessage(requestMessage)
+      ? (requestMessage.payload as PlanPayload).nodeId
+      : "";
 
   // 应用规划结果：批量创建子节点
   const handleApply = useCallback(async () => {
@@ -55,18 +67,17 @@ export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
       let skippedCount = 0;
 
       // 预先计算所有需要创建的节点的 order
-      // 这样即使是快速连续创建，order 也不会冲突
       let currentSiblings = [...existingSiblings];
 
-      // 按顺序创建子节点（使用 mutateAsync 确保顺序执行）
+      // 按顺序创建子节点
       for (const child of children) {
-        // 检查是否已存在同名节点（忽略大小写）
+        // 检查是否已存在同名节点
         if (existingChildTitles.has(child.title.trim().toLowerCase())) {
           skippedCount++;
           continue;
         }
 
-        // 计算新节点的 order（追加到末尾）
+        // 计算新节点的 order
         const order = calculateNewOrder(currentSiblings, currentSiblings.length);
 
         await createNodeAsync({
@@ -74,13 +85,11 @@ export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
           parentId: targetNodeId,
           type: child.type,
           title: child.title,
-          order, // 显式传递 order
-          // FOLDER 使用 outline，FILE 使用 summary
+          order,
           outline: child.type === "FOLDER" ? child.summary : undefined,
           summary: child.type === "FILE" ? child.summary : undefined,
         });
 
-        // 更新本地 siblings 列表，以便下一个节点计算正确的 order
         currentSiblings.push({
           id: `temp-${Date.now()}-${createdCount}`,
           order,
@@ -90,11 +99,14 @@ export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
       }
 
       if (skippedCount > 0) {
-        toast.success(`成功创建 ${createdCount} 个子节点，跳过 ${skippedCount} 个已存在的节点`);
+        toast.success(
+          `成功创建 ${createdCount} 个子节点，跳过 ${skippedCount} 个已存在的节点`
+        );
       } else {
         toast.success(`成功创建 ${createdCount} 个子节点`);
       }
-      // 应用成功后保留卡片，用户可以手动删除
+
+      markAsApplied(message.id);
     } catch (error) {
       console.error("Failed to apply plan result:", error);
       toast.error("应用失败，请重试");
@@ -107,6 +119,8 @@ export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
     projectId,
     nodes,
     createNodeAsync,
+    message.id,
+    markAsApplied,
   ]);
 
   // 复制规划结果
@@ -124,35 +138,24 @@ export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
     setTimeout(() => setCopied(false), 2000);
   }, [children]);
 
-  // 删除规划结果
-  const handleDelete = useCallback(() => {
-    clearPlanResult();
-    setCurrentFunction("chat");
-    clearUserContexts();
-  }, [clearPlanResult, setCurrentFunction, clearUserContexts]);
-
   return (
     <div
       className={cn(
         "rounded-xl border bg-card overflow-hidden",
-        "shadow-sm",
-        isStreaming && "border-violet-500/50"
+        "shadow-sm"
       )}
     >
       {/* 标题栏 */}
       <div
         className={cn(
           "flex items-center justify-between px-4 py-3",
-          "bg-gradient-to-r from-violet-500/10 to-purple-500/10",
+          "bg-gradient-to-r from-emerald-500/10 to-teal-500/10",
           "border-b border-border/50"
         )}
       >
         <div className="flex items-center gap-2">
-          <FolderPlus className="h-4 w-4 text-violet-500" />
-          <span className="text-sm font-medium">AI 规划结果</span>
-          {isStreaming && (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-500" />
-          )}
+          <FolderPlus className="h-4 w-4 text-emerald-500" />
+          <span className="text-sm font-medium">规划结果</span>
         </div>
         <button
           onClick={() => setExpanded(!expanded)}
@@ -177,11 +180,7 @@ export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
 
           {/* 子节点列表 */}
           <div className="p-4 space-y-3 max-h-[300px] overflow-y-auto">
-            {children.length === 0 && isStreaming ? (
-              <div className="text-center py-4 text-muted-foreground text-sm">
-                正在生成规划...
-              </div>
-            ) : children.length === 0 ? (
+            {children.length === 0 ? (
               <div className="text-center py-4 text-muted-foreground text-sm">
                 暂无规划结果
               </div>
@@ -253,13 +252,18 @@ export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
             <Button
               size="sm"
               onClick={handleApply}
-              disabled={isStreaming || applying || isCreating || children.length === 0}
-              className="gap-1.5"
+              disabled={applying || isCreating || children.length === 0 || applied}
+              className={cn("gap-1.5", applied && "bg-green-500 hover:bg-green-500")}
             >
               {applying || isCreating ? (
                 <>
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   应用中...
+                </>
+              ) : applied ? (
+                <>
+                  <Check className="h-3.5 w-3.5" />
+                  已应用
                 </>
               ) : (
                 <>
@@ -272,7 +276,7 @@ export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
               size="sm"
               variant="outline"
               onClick={handleCopy}
-              disabled={isStreaming || children.length === 0}
+              disabled={children.length === 0}
               className="gap-1.5"
             >
               {copied ? (
@@ -286,15 +290,6 @@ export function AIPlanResultCard({ result, projectId }: AIPlanResultCardProps) {
                   复制
                 </>
               )}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleDelete}
-              className="gap-1.5 text-destructive hover:text-destructive"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              删除
             </Button>
           </div>
         </>

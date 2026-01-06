@@ -11,8 +11,10 @@ import { Node, FolderMetadata, FileMetadata } from "@/types";
 import { useNodes, buildTree, TreeNode } from "@/lib/hooks";
 import { useEditorStore } from "@/lib/stores";
 import { useAIStore } from "@/lib/stores/ai-store";
+import { useAIRequest } from "@/lib/ai/hooks";
 import { buildPlanContext } from "@/lib/ai/context-builder";
 import { cn } from "@/lib/utils";
+import type { PlanPayload } from "@/lib/ai/types";
 
 interface FolderEditorProps {
   node: Node;
@@ -142,12 +144,10 @@ export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProp
   // AI规划功能
   const {
     toggleChatWindow,
-    setCurrentFunction,
-    setPlanContext,
-    setPlanTargetNodeId,
     currentProject,
-    contextEnhancementEnabled,
+    setPendingSpecialFunction,
   } = useAIStore();
+  const { isLoading: isAILoading } = useAIRequest();
 
   // 检查是否可以使用AI规划（需要有大纲）
   const canUsePlan = useMemo(() => {
@@ -165,14 +165,31 @@ export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProp
       currentNode: { ...node, outline }, // 使用最新的outline
       allNodes: nodes,
       projectInfo: currentProject,
-      enhanceContext: contextEnhancementEnabled,
+      enhanceContext: false, // 暂时禁用上下文增强
       entities: [], // TODO: 如果需要可以从entities store获取
     });
 
-    // 设置规划上下文、目标节点和功能
-    setPlanContext(planContext);
-    setPlanTargetNodeId(node.id);
-    setCurrentFunction("plan");
+    // 构建 PlanPayload
+    const payload: PlanPayload = {
+      nodeId: node.id,
+      nodeName: planContext.nodeName,
+      nodeOutline: planContext.nodeOutline,
+      existingChildren: planContext.existingChildren,
+      parentNode: planContext.parentNode,
+      relatedEntities: planContext.relatedEntities,
+    };
+
+    // 构建显示文本（使用节点名称）
+    const displayText = node.title.length > 20 
+      ? node.title.slice(0, 20) + "..." 
+      : node.title;
+
+    // 设置待发送的特殊功能
+    setPendingSpecialFunction({
+      functionType: "plan",
+      payload,
+      displayText,
+    });
 
     // 打开聊天窗口
     toggleChatWindow(true);
@@ -182,11 +199,8 @@ export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProp
     outline,
     nodes,
     currentProject,
-    contextEnhancementEnabled,
-    setPlanContext,
-    setPlanTargetNodeId,
-    setCurrentFunction,
     toggleChatWindow,
+    setPendingSpecialFunction,
   ]);
 
   return (
@@ -253,11 +267,11 @@ export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProp
                     variant="outline"
                     size="sm"
                     onClick={handleAIPlan}
-                    disabled={!canUsePlan}
+                    disabled={!canUsePlan || isAILoading}
                     title={canUsePlan ? "使用AI自动新建子节点" : "请先填写大纲"}
                   >
                     <Sparkles className="h-4 w-4 mr-1" />
-                    AI自动新建
+                    {isAILoading ? "规划中..." : "AI自动新建"}
                   </Button>
                 )}
               </div>

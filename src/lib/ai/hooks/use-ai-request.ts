@@ -1,45 +1,54 @@
 /**
  * AI 请求 Hook
- * 封装 AI 请求的核心逻辑，简化组件代码
+ * 统一消息流架构下的 AI 请求处理
  */
 
 import { useCallback, useRef } from "react";
 import { useAIStore } from "@/lib/stores/ai-store";
 import { getModelForFunction } from "@/lib/ai/settings";
-import { parseModifyResult, parsePlanResult } from "@/lib/ai/prompts";
-import type { AIFunction, AIContext, ChatMessage } from "@/lib/ai/types";
-import { isModifyFunction } from "@/lib/ai/types";
-import type { PlanContext } from "@/lib/ai/prompts/plan";
+import type {
+  AIFunction,
+  SpecialFunctionType,
+  SpecialPayloadMap,
+  UserContextItem,
+  ProviderMessage,
+  ModifyResult,
+  PlanResult,
+} from "@/lib/ai/types";
+import { isTextMessage, isModifyFunctionType } from "@/lib/ai/types";
+
+/**
+ * 普通聊天请求参数
+ */
+export interface ChatRequestParams {
+  type: "chat";
+  /** 用户输入 */
+  userInput: string;
+  /** 用户添加的上下文 */
+  userContexts?: UserContextItem[];
+}
+
+/**
+ * 特殊功能请求参数
+ */
+export interface SpecialRequestParams<
+  T extends SpecialFunctionType = SpecialFunctionType
+> {
+  type: "special";
+  /** 功能类型 */
+  functionType: T;
+  /** 功能所需的 Payload */
+  payload: SpecialPayloadMap[T];
+  /** 用户额外输入（可选） */
+  userInstruction?: string;
+  /** 用户添加的上下文（可选） */
+  userContexts?: UserContextItem[];
+}
 
 /**
  * AI 请求参数
  */
-export interface AIRequestParams {
-  /** 功能类型 */
-  function: AIFunction;
-  /** 用户输入（可选，修改功能可以不需要） */
-  userInput?: string;
-  /** 聊天历史（聊天功能使用） */
-  chatHistory?: ChatMessage[];
-  /** 上下文 */
-  context?: AIContext;
-  /** 选中的文本（修改功能使用） */
-  selectedText?: string;
-  /** 增强上下文（修改功能使用） */
-  enhancedContext?: {
-    textBefore?: string;
-    textAfter?: string;
-    sceneSummary?: string;
-    chapterSummary?: string;
-    relatedEntityIds?: string[];
-  };
-  /** 规划上下文（规划功能使用） */
-  planContext?: PlanContext;
-  /** 目标节点 ID（规划功能使用，用于应用结果） */
-  targetNodeId?: string;
-  /** 是否启用破限模式 */
-  jailbreak?: boolean;
-}
+export type AIRequestParams = ChatRequestParams | SpecialRequestParams;
 
 /**
  * AI 请求结果
@@ -47,6 +56,71 @@ export interface AIRequestParams {
 export interface AIRequestResult {
   success: boolean;
   error?: string;
+  messageId?: string;
+}
+
+/**
+ * 解析修改功能的 JSON 输出
+ */
+function parseModifyResult(content: string): ModifyResult {
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed.result) {
+      return {
+        modifiedText: parsed.result,
+        explanation: parsed.explanation,
+      };
+    }
+  } catch {
+    // 尝试从 markdown 代码块中提取 JSON
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[1].trim());
+        if (parsed.result) {
+          return {
+            modifiedText: parsed.result,
+            explanation: parsed.explanation,
+          };
+        }
+      } catch {
+        // 解析失败
+      }
+    }
+  }
+  // 如果解析失败，将整个内容作为结果返回
+  return { modifiedText: content.trim() };
+}
+
+/**
+ * 解析规划功能的 JSON 输出
+ */
+function parsePlanResult(content: string): PlanResult | null {
+  try {
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const jsonStr = jsonMatch ? jsonMatch[1].trim() : content.trim();
+    const result = JSON.parse(jsonStr);
+
+    if (!result.children || !Array.isArray(result.children)) {
+      return null;
+    }
+
+    const validChildren = result.children.filter(
+      (child: { title?: string; summary?: string; type?: string }) =>
+        typeof child.title === "string" &&
+        typeof child.summary === "string" &&
+        (child.type === "FOLDER" || child.type === "FILE")
+    );
+
+    if (validChildren.length === 0) return null;
+
+    return {
+      children: validChildren,
+      explanation: result.explanation,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -60,16 +134,19 @@ export function useAIRequest() {
     isLoading,
     isStreaming,
     debugMode,
+    currentProject,
+    chatHistory,
+    settings,
     setLoading,
     setStreaming,
-    setStreamingContent,
-    appendStreamingContent,
+    setStreamingChatContent,
+    appendStreamingChatContent,
     setError,
     setLastRequestDebug,
-    setModifyResult,
-    updateModifyResultText,
-    setPlanResult,
-    addMessage,
+    addTextMessage,
+    addSpecialRequest,
+    addSpecialResult,
+    updateSpecialResult,
   } = useAIStore();
 
   /**
@@ -77,47 +154,20 @@ export function useAIRequest() {
    */
   const sendRequest = useCallback(
     async (params: AIRequestParams): Promise<AIRequestResult> => {
-      const {
-        function: aiFunction,
-        userInput,
-        chatHistory = [],
-        context,
-        selectedText,
-        enhancedContext,
-        planContext,
-        targetNodeId,
-        jailbreak = false,
-      } = params;
-
-      const isModify = isModifyFunction(aiFunction);
-      const isPlan = aiFunction === "plan";
-
-      // 验证参数
-      if (isModify && !selectedText) {
-        setError("请先选中需要修改的文本");
-        return { success: false, error: "请先选中需要修改的文本" };
-      }
-
-      if (isPlan && !planContext) {
-        setError("规划功能需要提供上下文");
-        return { success: false, error: "规划功能需要提供上下文" };
-      }
-
-      if (!isModify && !isPlan && !userInput?.trim() && chatHistory.length === 0) {
-        return { success: false, error: "请输入内容" };
-      }
+      const isChat = params.type === "chat";
+      const functionType: AIFunction = isChat ? "chat" : params.functionType;
 
       // 获取模型配置
-      const modelConfig = getModelForFunction(aiFunction);
+      const modelConfig = getModelForFunction(functionType);
       if (!modelConfig) {
         const error = "未找到可用的 AI 服务商，请先配置 API Key";
         setError(error);
         return { success: false, error };
       }
 
-      // 对于普通聊天和规划功能，添加用户消息到历史（修改功能不添加）
-      if (!isModify && userInput?.trim()) {
-        addMessage({ role: "user", content: userInput.trim() });
+      // 验证参数
+      if (isChat && !params.userInput.trim()) {
+        return { success: false, error: "请输入内容" };
       }
 
       setLoading(true);
@@ -126,38 +176,68 @@ export function useAIRequest() {
       try {
         abortControllerRef.current = new AbortController();
 
-        // 构建请求消息
-        let requestMessages: ChatMessage[];
-        if (isModify || isPlan) {
-          // 修改/规划功能：如果有额外输入，作为用户指令
-          requestMessages = userInput?.trim()
-            ? [{ role: "user" as const, content: userInput.trim() }]
-            : [{ role: "user" as const, content: "" }];
+        let requestMessageId: string | undefined;
+        let resultMessageId: string | undefined;
+
+        // 根据类型添加消息到历史
+        if (isChat) {
+          // 普通聊天：添加用户文本消息（包含参考内容用于显示）
+          const userMessage = addTextMessage("user", params.userInput, params.userContexts);
+          requestMessageId = userMessage.id;
         } else {
-          // 普通聊天：使用聊天历史
-          requestMessages = [...chatHistory];
-          if (userInput?.trim()) {
-            requestMessages.push({ role: "user", content: userInput.trim() });
-          }
+          // 特殊功能：添加特殊请求消息
+          const specialParams = params as SpecialRequestParams;
+          const requestMessage = addSpecialRequest(
+            specialParams.functionType,
+            specialParams.payload,
+            specialParams.userInstruction,
+            specialParams.userContexts
+          );
+          requestMessageId = requestMessage.id;
+
+          // 添加特殊结果消息（初始状态）
+          const resultMessage = addSpecialResult(
+            specialParams.functionType,
+            requestMessageId
+          );
+          resultMessageId = resultMessage.id;
         }
 
-        // 构建请求体
-        const requestBody = {
-          function: aiFunction,
+        // 构建历史消息（只取文本消息用于上下文）
+        const historyMessages: ProviderMessage[] = chatHistory
+          .filter(isTextMessage)
+          .map((m) => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          }));
+
+        // 构建请求体（使用新的 API 格式）
+        const requestBody: Record<string, unknown> = {
+          requestType: isChat ? "chat" : "special",
           provider: {
             id: modelConfig.provider,
             apiKey: modelConfig.apiKey,
             baseUrl: modelConfig.baseUrl,
             model: modelConfig.model,
           },
-          messages: requestMessages,
-          jailbreak,
-          context: context || undefined,
-          selectedText: selectedText || undefined,
-          enhancedContext: isModify ? enhancedContext : undefined,
-          planContext: isPlan ? planContext : undefined,
+          messages: historyMessages,
+          project: currentProject || undefined,
+          jailbreak: settings.jailbreakEnabled,
           stream: true,
         };
+
+        if (isChat) {
+          // 普通聊天
+          requestBody.userInput = params.userInput;
+          requestBody.userContexts = params.userContexts || [];
+        } else {
+          // 特殊功能
+          const specialParams = params as SpecialRequestParams;
+          requestBody.functionType = specialParams.functionType;
+          requestBody.payload = specialParams.payload;
+          requestBody.userInput = specialParams.userInstruction || "";
+          requestBody.userContexts = specialParams.userContexts || [];
+        }
 
         // 发送请求
         const response = await fetch("/api/ai/chat", {
@@ -178,24 +258,11 @@ export function useAIRequest() {
         }
 
         setLoading(false);
-        setStreaming(true);
-
-        // 初始化状态
-        if (isModify) {
-          setModifyResult({
-            originalText: selectedText!,
-            modifiedText: "",
-            functionType: aiFunction as "polish" | "expand" | "compress",
-            isStreaming: true,
-          });
-        } else if (isPlan) {
-          setPlanResult({
-            children: [],
-            isStreaming: true,
-            targetNodeId: targetNodeId || "",
-          });
-        } else {
-          setStreamingContent("");
+        setStreaming(true, resultMessageId);
+        
+        // 普通聊天时，清空流式内容
+        if (isChat) {
+          setStreamingChatContent("");
         }
 
         // 处理流式响应
@@ -225,13 +292,15 @@ export function useAIRequest() {
                 // 处理内容
                 if (parsed.content) {
                   fullContent += parsed.content;
-                  if (isModify) {
-                    updateModifyResultText(fullContent);
-                  } else if (isPlan) {
-                    // 规划功能：流式显示原始内容
-                    appendStreamingContent(parsed.content);
-                  } else {
-                    appendStreamingContent(parsed.content);
+
+                  if (isChat) {
+                    // 普通聊天：更新流式内容
+                    appendStreamingChatContent(parsed.content);
+                  } else if (resultMessageId) {
+                    // 特殊功能：更新流式内容
+                    updateSpecialResult(resultMessageId, {
+                      streamingContent: fullContent,
+                    });
                   }
                 }
               } catch {
@@ -242,33 +311,45 @@ export function useAIRequest() {
         }
 
         // 流式结束后处理
-        if (isModify) {
-          const result = parseModifyResult(fullContent);
-          setModifyResult({
-            originalText: selectedText!,
-            modifiedText: result.result,
-            explanation: result.explanation,
-            functionType: aiFunction as "polish" | "expand" | "compress",
-            isStreaming: false,
-          });
-        } else if (isPlan) {
-          // 解析规划结果
-          const result = parsePlanResult(fullContent);
-          if (result) {
-            setPlanResult({
-              children: result.children,
-              explanation: result.explanation,
+        if (isChat) {
+          // 普通聊天：添加 AI 回复消息
+          addTextMessage("assistant", fullContent);
+        } else if (resultMessageId) {
+          // 特殊功能：解析结果并更新
+          const specialParams = params as SpecialRequestParams;
+          const ft = specialParams.functionType;
+
+          if (isModifyFunctionType(ft)) {
+            const result = parseModifyResult(fullContent);
+            updateSpecialResult(resultMessageId, {
+              result: result as Partial<
+                import("@/lib/ai/types").SpecialResultMap[typeof ft]
+              >,
               isStreaming: false,
-              targetNodeId: targetNodeId || "",
+              streamingContent: undefined,
             });
-          } else {
-            setError("无法解析规划结果，请重试");
-            setPlanResult(null);
+          } else if (ft === "plan") {
+            const result = parsePlanResult(fullContent);
+            if (result) {
+              updateSpecialResult(resultMessageId, {
+                result: result as Partial<
+                  import("@/lib/ai/types").SpecialResultMap["plan"]
+                >,
+                isStreaming: false,
+                streamingContent: undefined,
+              });
+            } else {
+              setError("无法解析规划结果，请重试");
+            }
           }
+          // TODO: continue, summarize
         }
 
         setStreaming(false);
-        return { success: true };
+        return {
+          success: true,
+          messageId: resultMessageId || requestMessageId,
+        };
       } catch (error) {
         if ((error as Error).name === "AbortError") {
           setStreaming(false);
@@ -285,16 +366,19 @@ export function useAIRequest() {
     },
     [
       debugMode,
+      currentProject,
+      chatHistory,
+      settings.jailbreakEnabled,
       setLoading,
       setStreaming,
-      setStreamingContent,
-      appendStreamingContent,
+      setStreamingChatContent,
+      appendStreamingChatContent,
       setError,
       setLastRequestDebug,
-      setModifyResult,
-      updateModifyResultText,
-      setPlanResult,
-      addMessage,
+      addTextMessage,
+      addSpecialRequest,
+      addSpecialResult,
+      updateSpecialResult,
     ]
   );
 
@@ -309,9 +393,20 @@ export function useAIRequest() {
     setStreaming(false);
   }, [setStreaming]);
 
+  /**
+   * 标记特殊结果为已应用
+   */
+  const markAsApplied = useCallback(
+    (messageId: string) => {
+      updateSpecialResult(messageId, { applied: true });
+    },
+    [updateSpecialResult]
+  );
+
   return {
     sendRequest,
     stopRequest,
+    markAsApplied,
     isLoading,
     isStreaming,
   };

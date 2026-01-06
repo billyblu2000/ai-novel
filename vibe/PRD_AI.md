@@ -1,7 +1,9 @@
 # AI Novel Studio - AI 功能产品需求文档
 
-> 版本: 1.0  
-> 最后更新: 2026-01-04
+> 版本: 1.1  
+> 最后更新: 2026-01-06
+> 
+> **技术实现详情请参阅 [ARCHITECTURE.md](./ARCHITECTURE.md)**
 
 ---
 
@@ -770,6 +772,8 @@ interface AIChatRequest {
 
 ## 7. 文件结构
 
+> 详细架构说明请参阅 [ARCHITECTURE.md](./ARCHITECTURE.md)
+
 ```
 src/
 ├── app/
@@ -779,45 +783,49 @@ src/
 │   └── (dashboard)/settings/
 │       └── page.tsx                   # 设置页面
 │
-├── components/
-│   ├── ai/
-│   │   ├── ai-chat-window.tsx         # AI 聊天浮窗
-│   │   ├── ai-chat-messages.tsx       # 消息列表
-│   │   ├── ai-chat-input.tsx          # 输入区域
-│   │   ├── ai-function-select.tsx     # 功能选择器
-│   │   ├── ai-context-tags.tsx        # 上下文标签
-│   │   ├── ai-result-card.tsx         # 结果卡片（带 Apply/Copy/Delete）
-│   │   └── ai-context-menu.tsx        # 右键菜单（修改功能）
-│   │
-│   └── settings/
-│       ├── settings-layout.tsx        # 设置页面布局（左侧导航 + 右侧内容）
-│       ├── ai-settings.tsx            # AI 设置内容组件
-│       └── index.ts                   # 导出
+├── components/ai/
+│   ├── index.ts                       # 统一导出
+│   ├── ai-chat-window.tsx             # AI 聊天浮窗
+│   ├── ai-chat-messages.tsx           # 消息列表
+│   ├── ai-chat-input.tsx              # 输入区域（支持 Pending Tag）
+│   ├── message-renderer.tsx           # 消息渲染器
+│   ├── ai-context-tags.tsx            # 参考内容标签
+│   ├── ai-context-selector.tsx        # 参考内容选择器
+│   ├── ai-context-menu.tsx            # 右键菜单（修改功能）
+│   ├── ai-modify-result-card.tsx      # 修改结果卡片
+│   ├── ai-plan-result-card.tsx        # 规划结果卡片
+│   ├── ai-special-request-card.tsx    # 特殊请求卡片
+│   └── ai-debug-panel.tsx             # Debug 面板
 │
 ├── lib/ai/
-│   ├── providers/
-│   │   ├── index.ts               # Provider 注册表
-│   │   ├── base.ts                # 抽象基类
-│   │   ├── siliconflow.ts         # SiliconFlow 实现
-│   │   └── gemini.ts              # Gemini 实现
+│   ├── index.ts                       # 统一导出
+│   ├── settings.ts                    # 设置管理（localStorage）
+│   ├── context-builder.ts             # 上下文构建器
 │   │
-│   ├── prompts/
-│   │   ├── index.ts               # Prompt 导出
-│   │   ├── system.ts              # System Prompt
-│   │   ├── polish.ts              # 润色
-│   │   ├── expand.ts              # 扩写
-│   │   ├── compress.ts            # 缩写
-│   │   ├── continue.ts            # 续写
-│   │   ├── plan.ts                # 规划
-│   │   ├── summarize.ts           # 总结
-│   │   └── jailbreak.ts           # 破限相关
+│   ├── types/                         # 类型定义
+│   │   ├── index.ts
+│   │   ├── message.ts                 # 统一消息类型
+│   │   ├── context.ts
+│   │   ├── function.ts
+│   │   ├── provider.ts
+│   │   └── settings.ts
 │   │
-│   ├── context-builder.ts         # 上下文构建器
-│   ├── settings.ts                # 设置管理（localStorage）
-│   └── types.ts                   # AI 相关类型定义
+│   ├── prompts/                       # Prompt 模板
+│   │   ├── index.ts
+│   │   └── unified.ts                 # 统一 Prompt 构建
+│   │
+│   ├── providers/                     # AI Provider 实现
+│   │   ├── index.ts
+│   │   ├── base.ts
+│   │   ├── gemini.ts
+│   │   └── siliconflow.ts
+│   │
+│   └── hooks/                         # React Hooks
+│       ├── index.ts
+│       └── use-ai-request.ts          # AI 请求 Hook
 │
 └── lib/stores/
-    └── ai-store.ts                # AI 状态管理（Zustand）
+    └── ai-store.ts                    # AI 状态管理（Zustand）
 ```
 
 ---

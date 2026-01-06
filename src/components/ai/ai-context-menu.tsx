@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAIStore } from "@/lib/stores/ai-store";
 import { Wand2, Expand, Minimize2, Sparkles, MessageSquare } from "lucide-react";
-import type { AIFunction, NodeInfo } from "@/lib/ai/types";
+import type { ModifyFunctionType, ModifyPayload } from "@/lib/ai/types";
+import { SPECIAL_FUNCTION_NAMES } from "@/lib/ai/types";
 import { buildModifyEnhancedContext, entitiesToUserContexts } from "@/lib/ai/context-builder";
 import type { Entity } from "@/types";
+import type { NodeInfo } from "@/lib/ai/types";
 
 interface AIContextMenuProps {
   /** 选中的文字 */
@@ -35,7 +37,7 @@ interface AIContextMenuProps {
 interface MenuItem {
   label: string;
   icon: React.ReactNode;
-  function: AIFunction;
+  function: ModifyFunctionType;
   description: string;
 }
 
@@ -79,16 +81,7 @@ export function AIContextMenu({
 }: AIContextMenuProps) {
   const [adjustedPosition, setAdjustedPosition] = useState(position);
 
-  const {
-    setCurrentFunction,
-    addUserContext,
-    clearUserContexts,
-    clearModifyResult,
-    toggleChatWindow,
-    setSelectedText,
-    setModifyEnhancedContext,
-    contextEnhancementEnabled,
-  } = useAIStore();
+  const { toggleChatWindow, addPendingContext, setPendingSpecialFunction } = useAIStore();
 
   // 调整菜单位置，确保不超出视口
   useEffect(() => {
@@ -118,53 +111,51 @@ export function AIContextMenu({
     setAdjustedPosition({ x, y });
   }, [position, visible]);
 
-  // 处理菜单项点击
+  // 处理菜单项点击 - 设置待发送的特殊功能
   const handleMenuClick = useCallback(
-    (func: AIFunction) => {
-      // 1. 清空之前的上下文和修改结果
-      clearUserContexts();
-      clearModifyResult();
-
-      // 2. 设置选中的文字
-      setSelectedText(selectedText);
-
-      // 3. 添加选段作为上下文
-      addUserContext({
-        type: "selection",
-        text: selectedText,
+    (func: ModifyFunctionType) => {
+      // 1. 构建增强上下文
+      const enhancedContext = buildModifyEnhancedContext({
+        editorContent,
+        selectionStart,
+        selectionEnd,
+        currentNode,
+        parentNode,
+        mentionedEntityIds,
       });
 
-      // 4. 构建并设置增强上下文（使用集中的构建器）
-      const enhancedContext = contextEnhancementEnabled
-        ? buildModifyEnhancedContext({
-            editorContent,
-            selectionStart,
-            selectionEnd,
-            currentNode,
-            parentNode,
-            mentionedEntityIds,
-          })
-        : null;
-      setModifyEnhancedContext(enhancedContext);
+      // 2. 构建 Payload
+      const payload: ModifyPayload = {
+        selectedText,
+        enhancedContext: enhancedContext || undefined,
+      };
 
-      // 5. 如果有关联实体，添加到用户上下文
+      // 3. 构建用户上下文（关联实体）
+      let userContexts;
       if (enhancedContext?.relatedEntityIds && entities) {
-        const entityContexts = entitiesToUserContexts(
+        userContexts = entitiesToUserContexts(
           entities,
           enhancedContext.relatedEntityIds
         );
-        for (const ctx of entityContexts) {
-          addUserContext(ctx);
-        }
       }
 
-      // 6. 设置当前功能
-      setCurrentFunction(func);
+      // 4. 构建显示文本（截取选中文本的前 20 个字符）
+      const displayText = selectedText.length > 20 
+        ? selectedText.slice(0, 20) + "..." 
+        : selectedText;
 
-      // 7. 打开聊天窗口
+      // 5. 设置待发送的特殊功能
+      setPendingSpecialFunction({
+        functionType: func,
+        payload,
+        userContexts,
+        displayText,
+      });
+
+      // 6. 打开聊天窗口
       toggleChatWindow(true);
 
-      // 8. 关闭菜单
+      // 7. 关闭菜单
       onClose();
     },
     [
@@ -176,22 +167,16 @@ export function AIContextMenu({
       currentNode,
       parentNode,
       mentionedEntityIds,
-      contextEnhancementEnabled,
-      clearUserContexts,
-      clearModifyResult,
-      setSelectedText,
-      addUserContext,
-      setCurrentFunction,
       toggleChatWindow,
       onClose,
-      setModifyEnhancedContext,
+      setPendingSpecialFunction,
     ]
   );
 
   // 处理"添加为上下文"点击
   const handleAddAsContext = useCallback(() => {
-    // 添加选段作为上下文
-    addUserContext({
+    // 添加选段作为临时上下文
+    addPendingContext({
       type: "selection",
       text: selectedText,
     });
@@ -201,7 +186,7 @@ export function AIContextMenu({
 
     // 关闭菜单
     onClose();
-  }, [selectedText, addUserContext, toggleChatWindow, onClose]);
+  }, [selectedText, addPendingContext, toggleChatWindow, onClose]);
 
   // ESC 关闭菜单
   useEffect(() => {

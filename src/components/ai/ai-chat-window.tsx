@@ -4,7 +4,23 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAIStore, initializeAIStore } from "@/lib/stores/ai-store";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Minus, X, Settings } from "lucide-react";
+import {
+  Sparkles,
+  Minus,
+  X,
+  Settings,
+  MoreVertical,
+  Lock,
+  Unlock,
+  Trash2,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { AIChatMessages } from "./ai-chat-messages";
 import { AIChatInput } from "./ai-chat-input";
 import { AIContextTags } from "./ai-context-tags";
@@ -24,9 +40,13 @@ interface AIChatWindowProps {
 
 /**
  * AI 聊天浮窗组件
- * 现代简约风格，参考 ChatGPT 设计
+ * 统一消息流架构
  */
-export function AIChatWindow({ project, nodes = [], entities = [] }: AIChatWindowProps) {
+export function AIChatWindow({
+  project,
+  nodes = [],
+  entities = [],
+}: AIChatWindowProps) {
   const [selectorOpen, setSelectorOpen] = useState(false);
 
   const {
@@ -34,9 +54,9 @@ export function AIChatWindow({ project, nodes = [], entities = [] }: AIChatWindo
     hasUnreadMessage,
     toggleChatWindow,
     clearChatHistory,
-    clearUserContexts,
     setCurrentProject,
     settings,
+    toggleJailbreak,
   } = useAIStore();
 
   // 初始化 AI Store
@@ -60,7 +80,11 @@ export function AIChatWindow({ project, nodes = [], entities = [] }: AIChatWindo
   // 全局快捷键 Ctrl+Shift+A 呼出/收起 AI 浮窗
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "a") {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.shiftKey &&
+        e.key.toLowerCase() === "a"
+      ) {
         e.preventDefault();
         toggleChatWindow();
       }
@@ -78,7 +102,6 @@ export function AIChatWindow({ project, nodes = [], entities = [] }: AIChatWindo
   // 关闭并清空
   const handleClose = () => {
     clearChatHistory();
-    clearUserContexts();
     toggleChatWindow(false);
   };
 
@@ -133,7 +156,7 @@ export function AIChatWindow({ project, nodes = [], entities = [] }: AIChatWindo
               : "rounded-2xl overflow-hidden border border-border/50"
           )}
         >
-          {/* 标题栏 - 毛玻璃效果 */}
+          {/* 标题栏 */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-muted/50 backdrop-blur-sm">
             <div className="flex items-center gap-2.5">
               <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-foreground">
@@ -151,6 +174,55 @@ export function AIChatWindow({ project, nodes = [], entities = [] }: AIChatWindo
               </div>
             </div>
             <div className="flex items-center gap-0.5">
+              {/* 更多选项菜单 */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {/* 无限制模式 */}
+                  <DropdownMenuItem
+                    onClick={() => toggleJailbreak(!settings.jailbreakEnabled)}
+                    className={cn(
+                      "cursor-pointer",
+                      settings.jailbreakEnabled && "bg-pink-500/10 text-pink-600"
+                    )}
+                  >
+                    {settings.jailbreakEnabled ? (
+                      <Unlock className="h-4 w-4 mr-2" />
+                    ) : (
+                      <Lock className="h-4 w-4 mr-2" />
+                    )}
+                    <span>无限制模式</span>
+                    {settings.jailbreakEnabled && (
+                      <span className="ml-auto text-xs">✓</span>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {/* 清空对话 */}
+                  <DropdownMenuItem
+                    onClick={clearChatHistory}
+                    className="cursor-pointer text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    <span>清空对话</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {/* 设置 */}
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/settings?tab=ai">
+                      <Settings className="h-4 w-4 mr-2" />
+                      <span>AI 设置</span>
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <AIDebugToggle />
               <Button
                 variant="ghost"
@@ -173,10 +245,7 @@ export function AIChatWindow({ project, nodes = [], entities = [] }: AIChatWindo
             </div>
           </div>
 
-          {/* 上下文标签区域 */}
-          {hasEnabledProvider && (
-            <AIContextTags onAddClick={() => setSelectorOpen(true)} />
-          )}
+          {/* 上下文标签区域 - 已移至输入框上方 */}
 
           {/* 消息区域 */}
           <div className="flex-1 overflow-hidden">
@@ -205,7 +274,10 @@ export function AIChatWindow({ project, nodes = [], entities = [] }: AIChatWindo
 
           {/* 输入区域 */}
           {hasEnabledProvider && (
-            <div className="p-3 border-t border-border/50 bg-muted/30">
+            <div className="p-3 border-t border-border/50 bg-muted/30 space-y-2">
+              {/* 参考内容标签 */}
+              <AIContextTags onAddClick={() => setSelectorOpen(true)} />
+              {/* 输入框 */}
               <AIChatInput />
             </div>
           )}

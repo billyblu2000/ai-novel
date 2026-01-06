@@ -1,19 +1,30 @@
 /**
  * AI Store - Zustand 状态管理
- * 管理 AI 功能的全局状态
+ * 统一消息流架构：所有交互都是消息
  */
 
 import { create } from "zustand";
 import type {
   AISettings,
-  AIFunction,
-  ChatMessage,
-  UserContextItem,
   FunctionModelConfig,
   ProjectInfo,
-  ModifyEnhancedContext,
+  ChatMessage,
+  TextMessage,
+  SpecialRequestMessage,
+  SpecialResultMessage,
+  SpecialFunctionType,
+  SpecialResultMap,
+  SpecialPayloadMap,
+  UserContextItem,
+  AIFunction,
 } from "@/lib/ai/types";
-import { DEFAULT_AI_SETTINGS, isModifyFunction } from "@/lib/ai/types";
+import {
+  DEFAULT_AI_SETTINGS,
+  createTextMessage,
+  createSpecialRequestMessage,
+  createSpecialResultMessage,
+  isSpecialResultMessage,
+} from "@/lib/ai/types";
 import {
   loadAISettings,
   updateProviderSettings as updateProviderSettingsStorage,
@@ -21,42 +32,19 @@ import {
   toggleJailbreak as toggleJailbreakStorage,
 } from "@/lib/ai/settings";
 
-// 重新导出类型供外部使用
-export type { ModifyEnhancedContext } from "@/lib/ai/types";
-export type { PlanContext, PlannedChild, PlanResult } from "@/lib/ai/prompts/plan";
-
 /**
- * 修改功能结果
+ * 待发送的特殊功能信息
+ * 用于在输入框中显示 tag
  */
-export interface ModifyResultState {
-  /** 原始文本 */
-  originalText: string;
-  /** 修改后的文本 */
-  modifiedText: string;
-  /** 修改说明 */
-  explanation?: string;
+export interface PendingSpecialFunction<T extends SpecialFunctionType = SpecialFunctionType> {
   /** 功能类型 */
-  functionType: "polish" | "expand" | "compress";
-  /** 是否正在流式输出 */
-  isStreaming: boolean;
-}
-
-/**
- * 规划功能结果
- */
-export interface PlanResultState {
-  /** 规划的子节点列表 */
-  children: Array<{
-    title: string;
-    summary: string;
-    type: "FOLDER" | "FILE";
-  }>;
-  /** 规划说明 */
-  explanation?: string;
-  /** 是否正在流式输出 */
-  isStreaming: boolean;
-  /** 当前节点 ID（用于应用规划结果） */
-  targetNodeId: string;
+  functionType: T;
+  /** 功能所需的 Payload */
+  payload: SpecialPayloadMap[T];
+  /** 用户添加的上下文（可选） */
+  userContexts?: UserContextItem[];
+  /** 显示文本（用于 tag 显示） */
+  displayText: string;
 }
 
 /**
@@ -69,41 +57,31 @@ interface AIState {
   /** 设置是否已加载 */
   settingsLoaded: boolean;
 
-  // ========== 聊天状态 ==========
+  // ========== 项目信息 ==========
   /** 当前项目信息 */
   currentProject: ProjectInfo | null;
-  /** 当前聊天历史 */
+
+  // ========== 统一消息流 ==========
+  /** 聊天消息历史 */
   chatHistory: ChatMessage[];
-  /** 当前选择的功能 */
-  currentFunction: AIFunction;
-  /** 用户添加的上下文 */
-  userContexts: UserContextItem[];
-  /** 选中的文字（用于修改功能） */
-  selectedText: string | null;
 
-  // ========== 修改功能状态 ==========
-  /** 修改功能结果 */
-  modifyResult: ModifyResultState | null;
-  /** 上下文增强是否启用 */
-  contextEnhancementEnabled: boolean;
-  /** 修改功能的增强上下文 */
-  modifyEnhancedContext: ModifyEnhancedContext | null;
+  // ========== 临时上下文（用于下次发送） ==========
+  /** 用户添加的临时上下文 */
+  pendingContexts: UserContextItem[];
 
-  // ========== 规划功能状态 ==========
-  /** 规划功能结果 */
-  planResult: PlanResultState | null;
-  /** 规划功能上下文 */
-  planContext: import("@/lib/ai/prompts/plan").PlanContext | null;
-  /** 规划目标节点 ID */
-  planTargetNodeId: string | null;
+  // ========== 待发送的特殊功能 ==========
+  /** 待发送的特殊功能（显示为输入框中的 tag） */
+  pendingSpecialFunction: PendingSpecialFunction | null;
 
   // ========== 请求状态 ==========
-  /** 是否正在加载 */
+  /** 是否正在加载（等待首个 token） */
   isLoading: boolean;
   /** 是否正在流式输出 */
   isStreaming: boolean;
-  /** 当前流式输出的内容 */
-  streamingContent: string;
+  /** 当前流式输出的消息 ID（特殊功能用） */
+  streamingMessageId: string | null;
+  /** 普通聊天的流式内容 */
+  streamingChatContent: string;
   /** 错误信息 */
   error: string | null;
 
@@ -120,7 +98,7 @@ interface AIState {
   lastRequestDebug: {
     timestamp: number;
     function: AIFunction;
-    messages: ChatMessage[];
+    messages: Array<{ role: string; content: string }>;
     context?: unknown;
     provider: string;
     model: string;
@@ -141,35 +119,48 @@ interface AIState {
   ) => void;
   toggleJailbreak: (enabled: boolean) => void;
 
-  // 聊天相关
+  // 项目相关
   setCurrentProject: (project: ProjectInfo | null) => void;
-  setCurrentFunction: (func: AIFunction) => void;
-  addUserContext: (context: UserContextItem) => void;
-  removeUserContext: (index: number) => void;
-  clearUserContexts: () => void;
-  setSelectedText: (text: string | null) => void;
-  addMessage: (message: ChatMessage) => void;
+
+  // 临时上下文相关
+  addPendingContext: (context: UserContextItem) => void;
+  removePendingContext: (index: number) => void;
+  clearPendingContexts: () => void;
+  consumePendingContexts: () => UserContextItem[];
+
+  // 待发送的特殊功能
+  setPendingSpecialFunction: (pending: PendingSpecialFunction | null) => void;
+  clearPendingSpecialFunction: () => void;
+
+  // 消息相关
+  addTextMessage: (role: "user" | "assistant", content: string, userContexts?: UserContextItem[]) => TextMessage;
+  addSpecialRequest: <T extends SpecialFunctionType>(
+    functionType: T,
+    payload: import("@/lib/ai/types").SpecialPayloadMap[T],
+    userInstruction?: string,
+    userContexts?: UserContextItem[]
+  ) => SpecialRequestMessage<T>;
+  addSpecialResult: <T extends SpecialFunctionType>(
+    functionType: T,
+    requestMessageId: string
+  ) => SpecialResultMessage<T>;
+  updateSpecialResult: <T extends SpecialFunctionType>(
+    messageId: string,
+    updates: Partial<{
+      result: Partial<SpecialResultMap[T]>;
+      isStreaming: boolean;
+      streamingContent: string;
+      applied: boolean;
+    }>
+  ) => void;
+  updateMessage: (messageId: string, updates: Partial<ChatMessage>) => void;
   clearChatHistory: () => void;
-
-  // 修改功能相关
-  setModifyResult: (result: ModifyResultState | null) => void;
-  updateModifyResultText: (text: string) => void;
-  clearModifyResult: () => void;
-  toggleContextEnhancement: (enabled?: boolean) => void;
-  setModifyEnhancedContext: (context: ModifyEnhancedContext | null) => void;
-
-  // 规划功能相关
-  setPlanResult: (result: PlanResultState | null) => void;
-  updatePlanResult: (children: PlanResultState["children"]) => void;
-  clearPlanResult: () => void;
-  setPlanContext: (context: import("@/lib/ai/prompts/plan").PlanContext | null) => void;
-  setPlanTargetNodeId: (nodeId: string | null) => void;
 
   // 请求状态
   setLoading: (loading: boolean) => void;
-  setStreaming: (streaming: boolean) => void;
-  setStreamingContent: (content: string) => void;
-  appendStreamingContent: (chunk: string) => void;
+  setStreaming: (streaming: boolean, messageId?: string | null) => void;
+  setStreamingChatContent: (content: string) => void;
+  appendStreamingChatContent: (chunk: string) => void;
   setError: (error: string | null) => void;
 
   // 浮窗状态
@@ -189,23 +180,15 @@ export const useAIStore = create<AIState>((set, get) => ({
   settings: DEFAULT_AI_SETTINGS,
   settingsLoaded: false,
 
-  chatHistory: [],
   currentProject: null,
-  currentFunction: "chat",
-  userContexts: [],
-  selectedText: null,
-
-  modifyResult: null,
-  contextEnhancementEnabled: false,
-  modifyEnhancedContext: null,
-
-  planResult: null,
-  planContext: null,
-  planTargetNodeId: null,
+  chatHistory: [],
+  pendingContexts: [],
+  pendingSpecialFunction: null,
 
   isLoading: false,
   isStreaming: false,
-  streamingContent: "",
+  streamingMessageId: null,
+  streamingChatContent: "",
   error: null,
 
   isChatWindowOpen: false,
@@ -250,113 +233,110 @@ export const useAIStore = create<AIState>((set, get) => ({
     set({ currentProject: project });
   },
 
-  // 设置当前功能
-  setCurrentFunction: (func) => {
-    set({ currentFunction: func });
-  },
-
-  // 添加用户上下文
-  addUserContext: (context) => {
+  // 添加临时上下文
+  addPendingContext: (context) => {
     set((state) => ({
-      userContexts: [...state.userContexts, context],
+      pendingContexts: [...state.pendingContexts, context],
     }));
   },
 
-  // 移除用户上下文
-  removeUserContext: (index) => {
+  // 移除临时上下文
+  removePendingContext: (index) => {
     set((state) => ({
-      userContexts: state.userContexts.filter((_, i) => i !== index),
+      pendingContexts: state.pendingContexts.filter((_, i) => i !== index),
     }));
   },
 
-  // 清空用户上下文
-  clearUserContexts: () => {
-    set({ userContexts: [] });
+  // 清空临时上下文
+  clearPendingContexts: () => {
+    set({ pendingContexts: [] });
   },
 
-  // 设置选中文字
-  setSelectedText: (text) => {
-    set({ selectedText: text });
+  // 消费临时上下文（获取并清空）
+  consumePendingContexts: () => {
+    const contexts = get().pendingContexts;
+    set({ pendingContexts: [] });
+    return contexts;
   },
 
-  // 添加消息
-  addMessage: (message) => {
+  // 设置待发送的特殊功能
+  setPendingSpecialFunction: (pending) => {
+    set({ pendingSpecialFunction: pending });
+  },
+
+  // 清空待发送的特殊功能
+  clearPendingSpecialFunction: () => {
+    set({ pendingSpecialFunction: null });
+  },
+
+  // 添加文本消息
+  addTextMessage: (role, content, userContexts) => {
+    const message = createTextMessage(role, content, userContexts);
     set((state) => ({
       chatHistory: [...state.chatHistory, message],
+    }));
+    return message;
+  },
+
+  // 添加特殊请求消息
+  addSpecialRequest: (functionType, payload, userInstruction, userContexts) => {
+    const message = createSpecialRequestMessage(
+      functionType,
+      payload,
+      userInstruction,
+      userContexts
+    );
+    set((state) => ({
+      chatHistory: [...state.chatHistory, message],
+    }));
+    return message;
+  },
+
+  // 添加特殊结果消息（初始状态，用于流式输出）
+  addSpecialResult: (functionType, requestMessageId) => {
+    const message = createSpecialResultMessage(functionType, requestMessageId);
+    set((state) => ({
+      chatHistory: [...state.chatHistory, message],
+      streamingMessageId: message.id,
+    }));
+    return message;
+  },
+
+  // 更新特殊结果消息
+  updateSpecialResult: (messageId, updates) => {
+    set((state) => ({
+      chatHistory: state.chatHistory.map((msg) => {
+        if (msg.id !== messageId || !isSpecialResultMessage(msg)) {
+          return msg;
+        }
+        const resultMsg = msg as SpecialResultMessage;
+        return {
+          ...resultMsg,
+          ...updates,
+          result: updates.result
+            ? { ...resultMsg.result, ...updates.result }
+            : resultMsg.result,
+        } as SpecialResultMessage;
+      }),
+    }));
+  },
+
+  // 更新消息（通用）
+  updateMessage: (messageId, updates) => {
+    set((state) => ({
+      chatHistory: state.chatHistory.map((msg) =>
+        msg.id === messageId ? ({ ...msg, ...updates } as ChatMessage) : msg
+      ),
     }));
   },
 
   // 清空聊天历史
   clearChatHistory: () => {
-    set({ chatHistory: [], streamingContent: "", modifyResult: null });
-  },
-
-  // 设置修改结果
-  setModifyResult: (result) => {
-    set({ modifyResult: result });
-  },
-
-  // 更新修改结果文本（用于流式输出）
-  updateModifyResultText: (text) => {
-    set((state) => {
-      if (!state.modifyResult) return state;
-      return {
-        modifyResult: {
-          ...state.modifyResult,
-          modifiedText: text,
-        },
-      };
+    set({
+      chatHistory: [],
+      streamingMessageId: null,
+      error: null,
     });
-  },
-
-  // 清空修改结果
-  clearModifyResult: () => {
-    set({ modifyResult: null, modifyEnhancedContext: null });
-  },
-
-  // 切换上下文增强
-  toggleContextEnhancement: (enabled) => {
-    set((state) => ({
-      contextEnhancementEnabled: enabled !== undefined ? enabled : !state.contextEnhancementEnabled,
-    }));
-  },
-
-  // 设置修改功能的增强上下文
-  setModifyEnhancedContext: (context) => {
-    set({ modifyEnhancedContext: context });
-  },
-
-  // 设置规划结果
-  setPlanResult: (result) => {
-    set({ planResult: result });
-  },
-
-  // 更新规划结果（用于流式输出解析后更新）
-  updatePlanResult: (children) => {
-    set((state) => {
-      if (!state.planResult) return state;
-      return {
-        planResult: {
-          ...state.planResult,
-          children,
-        },
-      };
-    });
-  },
-
-  // 清空规划结果
-  clearPlanResult: () => {
-    set({ planResult: null, planContext: null, planTargetNodeId: null });
-  },
-
-  // 设置规划上下文
-  setPlanContext: (context) => {
-    set({ planContext: context });
-  },
-
-  // 设置规划目标节点 ID
-  setPlanTargetNodeId: (nodeId) => {
-    set({ planTargetNodeId: nodeId });
   },
 
   // 设置加载状态
@@ -365,39 +345,32 @@ export const useAIStore = create<AIState>((set, get) => ({
   },
 
   // 设置流式状态
-  setStreaming: (streaming) => {
-    set({ isStreaming: streaming });
+  setStreaming: (streaming, messageId = null) => {
+    set({
+      isStreaming: streaming,
+      streamingMessageId: streaming ? messageId : null,
+      // 流式结束时清空聊天流式内容
+      streamingChatContent: streaming ? get().streamingChatContent : "",
+    });
+
+    // 流式结束时，更新未读消息状态
     if (!streaming) {
-      // 流式结束时，将内容添加到聊天历史（仅普通聊天，修改/规划功能不添加）
-      const content = get().streamingContent;
-      const modifyResult = get().modifyResult;
-      const planResult = get().planResult;
-      // 只有普通聊天才将流式内容添加到历史
-      if (content && !modifyResult && !planResult) {
-        set((state) => ({
-          chatHistory: [
-            ...state.chatHistory,
-            { role: "assistant", content },
-          ],
-          streamingContent: "",
-          hasUnreadMessage: !state.isChatWindowOpen,
-        }));
-      } else {
-        // 修改/规划功能：只清空流式内容
-        set({ streamingContent: "" });
+      const { isChatWindowOpen } = get();
+      if (!isChatWindowOpen) {
+        set({ hasUnreadMessage: true });
       }
     }
   },
 
-  // 设置流式内容
-  setStreamingContent: (content) => {
-    set({ streamingContent: content });
+  // 设置普通聊天的流式内容
+  setStreamingChatContent: (content) => {
+    set({ streamingChatContent: content });
   },
 
-  // 追加流式内容
-  appendStreamingContent: (chunk) => {
+  // 追加普通聊天的流式内容
+  appendStreamingChatContent: (chunk) => {
     set((state) => ({
-      streamingContent: state.streamingContent + chunk,
+      streamingChatContent: state.streamingChatContent + chunk,
     }));
   },
 
