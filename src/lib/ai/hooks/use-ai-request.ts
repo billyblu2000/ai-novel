@@ -325,6 +325,7 @@ export function useAIRequest() {
         const decoder = new TextDecoder();
         let buffer = "";
         let fullContent = "";
+        let prefill = ""; // 破限模式下的 prefill 内容
 
         while (true) {
           const { done, value } = await reader.read();
@@ -341,9 +342,13 @@ export function useAIRequest() {
               if (data === "[DONE]") continue;
               try {
                 const parsed = JSON.parse(data);
-                // 处理 debug 信息
+                // 处理 debug 信息和 prefill
                 if (parsed.debug && debugMode) {
                   setLastRequestDebug(parsed.debug);
+                }
+                // 保存 prefill（破限模式下需要拼接到完整内容前）
+                if (parsed.prefill) {
+                  prefill = parsed.prefill;
                 }
                 // 处理内容
                 if (parsed.content) {
@@ -353,9 +358,9 @@ export function useAIRequest() {
                     // 普通聊天：更新流式内容
                     appendStreamingChatContent(parsed.content);
                   } else if (resultMessageId) {
-                    // 特殊功能：更新流式内容
+                    // 特殊功能：更新流式内容（显示时包含 prefill）
                     updateSpecialResult(resultMessageId, {
-                      streamingContent: fullContent,
+                      streamingContent: prefill + fullContent,
                     });
                   }
                 }
@@ -367,16 +372,19 @@ export function useAIRequest() {
         }
 
         // 流式结束后处理
+        // 将 prefill 拼接到完整内容前（用于解析 JSON）
+        const contentForParsing = prefill + fullContent;
+
         if (isChat) {
-          // 普通聊天：添加 AI 回复消息
-          addTextMessage("assistant", fullContent);
+          // 普通聊天：添加 AI 回复消息（包含 prefill）
+          addTextMessage("assistant", contentForParsing);
         } else if (resultMessageId) {
           // 特殊功能：解析结果并更新
           const specialParams = params as SpecialRequestParams;
           const ft = specialParams.functionType;
 
           if (isModifyFunctionType(ft)) {
-            const result = parseModifyResult(fullContent);
+            const result = parseModifyResult(contentForParsing);
             updateSpecialResult(resultMessageId, {
               result: result as Partial<
                 import("@/lib/ai/types").SpecialResultMap[typeof ft]
@@ -385,7 +393,7 @@ export function useAIRequest() {
               streamingContent: undefined,
             });
           } else if (ft === "plan") {
-            const result = parsePlanResult(fullContent);
+            const result = parsePlanResult(contentForParsing);
             if (result) {
               updateSpecialResult(resultMessageId, {
                 result: result as Partial<
@@ -398,7 +406,7 @@ export function useAIRequest() {
               setError("无法解析规划结果，请重试");
             }
           } else if (ft === "continue") {
-            const result = parseContinueResult(fullContent);
+            const result = parseContinueResult(contentForParsing);
             updateSpecialResult(resultMessageId, {
               result: result as Partial<
                 import("@/lib/ai/types").SpecialResultMap["continue"]
@@ -407,7 +415,7 @@ export function useAIRequest() {
               streamingContent: undefined,
             });
           } else if (ft === "summarize") {
-            const result = parseSummarizeResult(fullContent);
+            const result = parseSummarizeResult(contentForParsing);
             updateSpecialResult(resultMessageId, {
               result: result as Partial<
                 import("@/lib/ai/types").SpecialResultMap["summarize"]

@@ -230,6 +230,11 @@ export async function POST(request: NextRequest) {
       maxTokens,
     };
 
+    // 获取 prefill（如果有的话）
+    const prefill = jailbreak
+      ? getJailbreakPrefill(requestType === "special" ? "special" : "chat")
+      : null;
+
     // 流式响应
     if (stream) {
       const encoder = new TextEncoder();
@@ -248,6 +253,8 @@ export async function POST(request: NextRequest) {
                 provider: providerConfig.id,
                 model: providerConfig.model,
               },
+              // 如果有 prefill，告诉客户端需要拼接
+              prefill: prefill || undefined,
             });
             controller.enqueue(encoder.encode(`data: ${debugData}\n\n`));
 
