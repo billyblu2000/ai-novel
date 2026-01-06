@@ -19,6 +19,9 @@ import { Node, FileMetadata, NodeStatus } from "@/types";
 import { useNodes } from "@/lib/hooks";
 import { useEntities, useMentions } from "@/lib/hooks/use-entities";
 import { useEditorStore } from "@/lib/stores";
+import { useAIStore } from "@/lib/stores/ai-store";
+import { buildContinueContext } from "@/lib/ai/context-builder";
+import type { ContinuePayload } from "@/lib/ai/types";
 import { cn } from "@/lib/utils";
 import { countEntityFrequencies } from "@/lib/entity-matcher";
 
@@ -32,6 +35,7 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
   const { entities } = useEntities(projectId);
   const { updateMentions } = useMentions(node.id);
   const { isDirty, setDirty, setSaving, setLastSavedAt } = useEditorStore();
+  const { setPendingSpecialFunction, toggleChatWindow } = useAIStore();
 
   const [content, setContent] = useState(node.content || "");
   const [summary, setSummary] = useState(node.summary || "");
@@ -212,6 +216,35 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
     toast.info("请在右侧边栏查看实体详情");
   }, []);
 
+  // Handle Tab key for AI continue
+  const handleTabContinue = useCallback((cursorPosition: number, textContent: string) => {
+    // 构建续写上下文（不传 projectInfo，因为 FileEditor 没有 project 对象）
+    const continueContext = buildContinueContext({
+      currentNode: node,
+      allNodes: nodes,
+      cursorPosition,
+      editorTextContent: textContent,
+      entities,
+      maxContentAfterLength: 200,
+    });
+
+    // 构建完整的 ContinuePayload
+    const payload: ContinuePayload = {
+      nodeId: node.id,
+      ...continueContext,
+    };
+
+    // 设置待发送的特殊功能
+    setPendingSpecialFunction({
+      functionType: "continue",
+      payload,
+      displayText: `续写「${node.title}」`,
+    });
+
+    // 打开聊天窗口
+    toggleChatWindow(true);
+  }, [node, nodes, entities, setPendingSpecialFunction, toggleChatWindow]);
+
   const wordCount = calculateWordCount(content);
   const { lastSavedAt, isSaving } = useEditorStore();
 
@@ -325,6 +358,7 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
             onViewEntityDetails={handleViewEntityDetails}
             currentNode={node}
             parentNode={parentNode}
+            onTabContinue={handleTabContinue}
           />
 
           {/* Word Count Footer */}

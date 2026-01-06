@@ -7,7 +7,7 @@
  */
 
 import type { ProjectInfo, UserContextItem, SpecialFunctionType } from "@/lib/ai/types";
-import type { ModifyPayload, PlanPayload } from "@/lib/ai/types/message";
+import type { ModifyPayload, PlanPayload, ContinuePayload } from "@/lib/ai/types/message";
 
 /**
  * 统一的 System Prompt
@@ -149,17 +149,29 @@ const TASK_DESCRIPTIONS: Record<SpecialFunctionType, string> = {
 
   continue: `【任务类型】内容续写
 
-你需要接续当前内容继续创作：
+你需要接续当前内容继续创作。
+
+**要求**：
 - 保持与前文一致的写作风格和语气
-- 延续当前的情节发展
-- 保持人物性格的一致性
+- 延续当前的情节发展和叙事节奏
+- 保持人物性格和行为的一致性
 - 注意情节的连贯性和逻辑性
+- 如果提供了光标后的内容，续写需要自然地衔接到后文
+- 续写长度适中，约 200-500 字
+
+**注意**：
+- 仔细阅读提供的上下文信息（父节点链、场景摘要、关联角色等）
+- 续写内容应该符合故事的整体设定和发展方向
+
+**重要**：
+- **不要重复已有内容**：直接从光标位置开始续写新内容，不要复述或重复【光标前的内容】中已有的任何文字
+- 输出的 result 应该是纯粹的新增内容，可以直接插入到光标位置
 
 【输出格式】
 请以 JSON 格式输出：
 \`\`\`json
 {
-  "result": "续写的内容",
+  "result": "续写的内容（纯文本，不含任何标记，不要包含已有内容）",
   "explanation": "续写思路说明（可选）"
 }
 \`\`\``,
@@ -307,6 +319,53 @@ function formatPlanPayload(payload: PlanPayload): string {
 }
 
 /**
+ * 格式化续写功能的 Payload
+ */
+function formatContinuePayload(payload: ContinuePayload): string {
+  const parts: string[] = [];
+
+  // 1. 父节点链（故事结构上下文）
+  if (payload.ancestorChain && payload.ancestorChain.length > 0) {
+    const chainInfo = payload.ancestorChain
+      .map((node, index) => {
+        const indent = "  ".repeat(index);
+        const summary = node.summary ? `\n${indent}  摘要：${node.summary}` : "";
+        return `${indent}📁 ${node.name}${summary}`;
+      })
+      .join("\n");
+    parts.push(`【故事结构】\n${chainInfo}`);
+  }
+
+  // 2. 当前节点信息
+  let nodeInfo = `【当前场景】\n**名称**：${payload.nodeName}`;
+  if (payload.nodeSummary) {
+    nodeInfo += `\n**摘要**：${payload.nodeSummary}`;
+  }
+  parts.push(nodeInfo);
+
+  // 3. 关联实体
+  if (payload.relatedEntities && payload.relatedEntities.length > 0) {
+    const entitiesList = payload.relatedEntities
+      .map((entity) => `- **${entity.name}** (${entity.type}): ${entity.description}`)
+      .join("\n");
+    parts.push(`【相关角色/设定】\n${entitiesList}`);
+  }
+
+  // 4. 光标前的内容（核心）
+  parts.push(`【光标前的内容】\n${payload.contentBefore}`);
+
+  // 5. 光标后的内容（如果有）
+  if (payload.contentAfter && payload.contentAfter.trim()) {
+    parts.push(`【光标后的内容（续写需要衔接到此处）】\n${payload.contentAfter}`);
+  }
+
+  // 6. 续写位置提示
+  parts.push("请从【光标前的内容】末尾开始续写。");
+
+  return parts.join("\n\n---\n\n");
+}
+
+/**
  * 构建特殊功能的用户消息
  * 将功能描述、上下文、用户额外指令整合到一条消息中
  */
@@ -346,8 +405,10 @@ export function buildSpecialRequestUserMessage(
       parts.push(formatPlanPayload(payload as PlanPayload));
       break;
     case "continue":
+      parts.push(formatContinuePayload(payload as ContinuePayload));
+      break;
     case "summarize":
-      // TODO: 实现续写和总结的 payload 格式化
+      // TODO: 实现总结的 payload 格式化
       parts.push(`【任务数据】\n${JSON.stringify(payload, null, 2)}`);
       break;
   }

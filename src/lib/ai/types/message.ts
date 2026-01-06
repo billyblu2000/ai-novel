@@ -103,12 +103,25 @@ export interface PlanPayload {
 export interface ContinuePayload {
   /** 当前节点 ID */
   nodeId: string;
-  /** 当前内容（末尾部分） */
-  currentContent: string;
-  /** 场景摘要 */
-  sceneSummary?: string;
-  /** 章节大纲 */
-  chapterOutline?: string;
+  /** 当前节点名称 */
+  nodeName: string;
+  /** 当前节点摘要 */
+  nodeSummary?: string;
+  /** 光标前的内容 */
+  contentBefore: string;
+  /** 光标后的内容（最多200字） */
+  contentAfter?: string;
+  /** 父节点链（从根到父，包含名称和摘要） */
+  ancestorChain: Array<{
+    name: string;
+    summary: string;
+  }>;
+  /** 关联实体（从节点摘要和正文中提取） */
+  relatedEntities?: Array<{
+    name: string;
+    type: string;
+    description: string;
+  }>;
 }
 
 /**

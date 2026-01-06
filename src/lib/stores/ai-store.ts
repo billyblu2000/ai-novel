@@ -32,6 +32,20 @@ import {
   toggleJailbreak as toggleJailbreakStorage,
 } from "@/lib/ai/settings";
 
+// 重新导出类型供外部使用
+export type {
+  ChatMessage,
+  TextMessage,
+  SpecialRequestMessage,
+  SpecialResultMessage,
+  SpecialFunctionType,
+  SpecialPayloadMap,
+  ModifyResult,
+  PlanResult,
+  ContinueResult,
+  SummarizeResult,
+} from "@/lib/ai/types";
+
 /**
  * 待发送的特殊功能信息
  * 用于在输入框中显示 tag

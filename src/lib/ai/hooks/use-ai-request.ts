@@ -14,6 +14,7 @@ import type {
   ProviderMessage,
   ModifyResult,
   PlanResult,
+  ContinueResult,
 } from "@/lib/ai/types";
 import { isTextMessage, isModifyFunctionType } from "@/lib/ai/types";
 
@@ -121,6 +122,33 @@ function parsePlanResult(content: string): PlanResult | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * 解析续写功能的 JSON 输出
+ */
+function parseContinueResult(content: string): ContinueResult {
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed.result) {
+      return { content: parsed.result };
+    }
+  } catch {
+    // 尝试从 markdown 代码块中提取 JSON
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[1].trim());
+        if (parsed.result) {
+          return { content: parsed.result };
+        }
+      } catch {
+        // 解析失败
+      }
+    }
+  }
+  // 如果解析失败，将整个内容作为结果返回
+  return { content: content.trim() };
 }
 
 /**
@@ -341,8 +369,17 @@ export function useAIRequest() {
             } else {
               setError("无法解析规划结果，请重试");
             }
+          } else if (ft === "continue") {
+            const result = parseContinueResult(fullContent);
+            updateSpecialResult(resultMessageId, {
+              result: result as Partial<
+                import("@/lib/ai/types").SpecialResultMap["continue"]
+              >,
+              isStreaming: false,
+              streamingContent: undefined,
+            });
           }
-          // TODO: continue, summarize
+          // TODO: summarize
         }
 
         setStreaming(false);

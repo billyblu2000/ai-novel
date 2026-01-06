@@ -30,6 +30,8 @@ interface EntityAwareEditorProps {
   currentNode?: NodeInfo | null;
   /** 父章节节点（用于 AI 上下文增强） */
   parentNode?: NodeInfo | null;
+  /** Tab 键续写回调 */
+  onTabContinue?: (cursorPosition: number, textContent: string) => void;
 }
 
 export function EntityAwareEditor({
@@ -47,6 +49,7 @@ export function EntityAwareEditor({
   onViewEntityDetails,
   currentNode,
   parentNode,
+  onTabContinue,
 }: EntityAwareEditorProps) {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedContentRef = useRef(content);
@@ -259,9 +262,10 @@ export function EntityAwareEditor({
     }
   }, [editor, ignoredEntities]);
 
-  // Handle Ctrl+S manual save
+  // Handle Ctrl+S manual save and Tab for AI continue
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+S: Save
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
         if (editor) {
@@ -276,11 +280,48 @@ export function EntityAwareEditor({
           }
         }
       }
+
+      // Tab: AI Continue (only when no selection)
+      if (e.key === "Tab" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+        if (!editor || !onTabContinue) return;
+
+        // 检查是否有选中文本（有选中文本时不触发续写）
+        const { from, to } = editor.state.selection;
+        if (from !== to) return;
+
+        e.preventDefault();
+
+        // 计算光标在纯文本中的位置
+        let textPosition = 0;
+        let cursorTextPosition = 0;
+        let foundCursor = false;
+
+        editor.state.doc.descendants((node, pos) => {
+          if (foundCursor) return false;
+
+          if (node.isText && node.text) {
+            const nodeEnd = pos + node.nodeSize;
+            if (from >= pos && from <= nodeEnd) {
+              cursorTextPosition = textPosition + (from - pos);
+              foundCursor = true;
+              return false;
+            }
+            textPosition += node.text.length;
+          }
+          return true;
+        });
+
+        // 获取纯文本内容
+        const textContent = editor.state.doc.textContent;
+
+        // 触发续写回调
+        onTabContinue(cursorTextPosition, textContent);
+      }
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [editor, onSave]);
+  }, [editor, onSave, onTabContinue]);
 
   // Update content when prop changes (e.g., switching nodes)
   useEffect(() => {
@@ -374,6 +415,23 @@ export function EntityAwareEditor({
     window.addEventListener("ai-apply-modify", handleApplyModify as EventListener);
     return () => {
       window.removeEventListener("ai-apply-modify", handleApplyModify as EventListener);
+    };
+  }, [editor]);
+
+  // Listen for AI apply continue event (insert at cursor position)
+  useEffect(() => {
+    const handleApplyContinue = (e: CustomEvent<{ text: string }>) => {
+      if (!editor) return;
+
+      const { text } = e.detail;
+
+      // 在光标位置插入续写内容
+      editor.chain().focus().insertContent(text).run();
+    };
+
+    window.addEventListener("ai-apply-continue", handleApplyContinue as EventListener);
+    return () => {
+      window.removeEventListener("ai-apply-continue", handleApplyContinue as EventListener);
     };
   }, [editor]);
 

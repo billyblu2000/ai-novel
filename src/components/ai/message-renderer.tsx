@@ -18,6 +18,7 @@ import {
 } from "@/lib/ai/types";
 import { AIModifyResultCard } from "./ai-modify-result-card";
 import { AIPlanResultCard } from "./ai-plan-result-card";
+import { AIContinueResultCard } from "./ai-continue-result-card";
 import { AISpecialRequestCard } from "./ai-special-request-card";
 import { MessageContextTags } from "./ai-context-tags";
 
@@ -198,7 +199,12 @@ function SpecialResultBubble({
                 projectId={projectId}
               />
             )}
-            {/* TODO: continue, summarize */}
+            {functionType === "continue" && (
+              <AIContinueResultCard
+                message={message as SpecialResultMessage<"continue">}
+              />
+            )}
+            {/* TODO: summarize */}
           </>
         )}
       </div>

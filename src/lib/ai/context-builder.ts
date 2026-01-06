@@ -10,6 +10,7 @@ import type {
   ProjectInfo,
   AIContext,
   PlanPayload,
+  ContinuePayload,
 } from "@/lib/ai/types";
 import type { Entity, Node } from "@/types";
 
@@ -273,4 +274,116 @@ export function findRelatedEntities(text: string, entities: Entity[]): Entity[] 
   }
 
   return related;
+}
+
+/**
+ * 构建续写功能上下文的参数
+ */
+export interface BuildContinueContextParams {
+  /** 当前节点 */
+  currentNode: Node;
+  /** 所有节点列表（用于查找父节点链） */
+  allNodes: Node[];
+  /** 项目信息 */
+  projectInfo?: ProjectInfo | null;
+  /** 光标位置（在纯文本中的位置） */
+  cursorPosition: number;
+  /** 编辑器纯文本内容 */
+  editorTextContent: string;
+  /** 实体列表（用于关联实体） */
+  entities?: Entity[];
+  /** 光标后内容的最大长度 */
+  maxContentAfterLength?: number;
+}
+
+/**
+ * 构建续写功能的上下文
+ * 返回 ContinuePayload 类型（不含 nodeId）
+ */
+export function buildContinueContext(
+  params: BuildContinueContextParams
+): Omit<ContinuePayload, "nodeId"> {
+  const {
+    currentNode,
+    allNodes,
+    projectInfo,
+    cursorPosition,
+    editorTextContent,
+    entities = [],
+    maxContentAfterLength = 200,
+  } = params;
+
+  // 1. 提取光标前后内容
+  const contentBefore = editorTextContent.slice(0, cursorPosition);
+  const rawContentAfter = editorTextContent.slice(cursorPosition);
+  const contentAfter = rawContentAfter.length > maxContentAfterLength
+    ? rawContentAfter.slice(0, maxContentAfterLength)
+    : rawContentAfter;
+
+  // 2. 构建父节点链（从根到父）
+  const ancestorChain: Array<{ name: string; summary: string }> = [];
+  
+  // 辅助函数：检查是否是系统根节点
+  const isSystemRoot = (node: Node): boolean => {
+    const meta = node.metadata as { system_root?: boolean } | null;
+    return !!meta?.system_root;
+  };
+
+  // 向上遍历父节点
+  let currentParentId = currentNode.parent_id;
+  while (currentParentId) {
+    const parentNode = allNodes.find((n) => n.id === currentParentId);
+    if (!parentNode) break;
+
+    // 跳过系统根节点
+    if (isSystemRoot(parentNode)) {
+      break;
+    }
+
+    // 添加到链的开头（因为我们是从下往上遍历）
+    ancestorChain.unshift({
+      name: parentNode.title,
+      summary: parentNode.type === "FILE" 
+        ? (parentNode.summary || "") 
+        : (parentNode.outline || ""),
+    });
+
+    currentParentId = parentNode.parent_id;
+  }
+
+  // 如果有项目信息，添加到链的最前面
+  if (projectInfo) {
+    ancestorChain.unshift({
+      name: projectInfo.title,
+      summary: projectInfo.description || "",
+    });
+  }
+
+  // 3. 构建基础上下文
+  const context: Omit<ContinuePayload, "nodeId"> = {
+    nodeName: currentNode.title,
+    nodeSummary: currentNode.summary || undefined,
+    contentBefore,
+    contentAfter: contentAfter.trim() || undefined,
+    ancestorChain,
+  };
+
+  // 4. 提取关联实体（从摘要和正文中）
+  if (entities.length > 0) {
+    const textToSearch = [
+      currentNode.summary || "",
+      editorTextContent,
+    ].join(" ");
+
+    const relatedEntities = findRelatedEntities(textToSearch, entities);
+    if (relatedEntities.length > 0) {
+      context.relatedEntities = relatedEntities.map((e) => ({
+        name: e.name,
+        type: e.type,
+        description: e.description || "",
+      }));
+    }
+  }
+
+  return context;
 }
