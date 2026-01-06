@@ -268,7 +268,7 @@ export abstract class OpenAICompatibleProvider implements AIProvider {
     return {
       model: params.model || config.model,
       messages: this.formatMessages(params.messages),
-      temperature: params.temperature ?? 0.7,
+      temperature: params.temperature ?? 1,
       max_tokens: params.maxTokens || 4096, // 默认 4K tokens
       stream,
     };
