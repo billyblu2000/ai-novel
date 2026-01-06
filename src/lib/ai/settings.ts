@@ -3,7 +3,7 @@
  * 负责 localStorage 读写和 API Key 加密/解密
  */
 
-import type { AISettings, AIFunction, FunctionModelConfig } from "./types";
+import type { AISettings, AIFunction, FunctionModelConfig, GeminiProviderSettings } from "./types";
 import { DEFAULT_AI_SETTINGS } from "./types";
 
 // localStorage key
@@ -85,10 +85,26 @@ export function loadAISettings(): AISettings {
       };
     }
 
+    // 解密 Gemini 特殊配置
+    let decryptedGeminiSettings: GeminiProviderSettings | undefined;
+    if (parsed.geminiSettings) {
+      decryptedGeminiSettings = {
+        ...parsed.geminiSettings,
+        apiKey: decryptApiKey(parsed.geminiSettings.apiKey),
+        freeApiKey: parsed.geminiSettings.freeApiKey 
+          ? decryptApiKey(parsed.geminiSettings.freeApiKey) 
+          : undefined,
+        paidApiKey: parsed.geminiSettings.paidApiKey 
+          ? decryptApiKey(parsed.geminiSettings.paidApiKey) 
+          : undefined,
+      };
+    }
+
     return {
       ...DEFAULT_AI_SETTINGS,
       ...parsed,
       providers: decryptedProviders,
+      geminiSettings: decryptedGeminiSettings,
     };
   } catch (error) {
     console.error("Failed to load AI settings:", error);
@@ -114,9 +130,25 @@ export function saveAISettings(settings: AISettings): void {
       };
     }
 
+    // 加密 Gemini 特殊配置
+    let encryptedGeminiSettings: GeminiProviderSettings | undefined;
+    if (settings.geminiSettings) {
+      encryptedGeminiSettings = {
+        ...settings.geminiSettings,
+        apiKey: encryptApiKey(settings.geminiSettings.apiKey),
+        freeApiKey: settings.geminiSettings.freeApiKey 
+          ? encryptApiKey(settings.geminiSettings.freeApiKey) 
+          : undefined,
+        paidApiKey: settings.geminiSettings.paidApiKey 
+          ? encryptApiKey(settings.geminiSettings.paidApiKey) 
+          : undefined,
+      };
+    }
+
     const toStore: AISettings = {
       ...settings,
       providers: encryptedProviders,
+      geminiSettings: encryptedGeminiSettings,
     };
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
@@ -142,6 +174,72 @@ export function updateProviderSettings(
   };
   saveAISettings(settings);
   return settings;
+}
+
+/**
+ * 更新 Gemini 双 Key 配置
+ */
+export function updateGeminiSettings(
+  freeApiKey: string,
+  paidApiKey: string,
+  enabled: boolean,
+  baseUrl?: string
+): AISettings {
+  const settings = loadAISettings();
+  
+  // 计算主 apiKey（优先使用付费 Key，否则使用免费 Key）
+  const primaryApiKey = paidApiKey || freeApiKey;
+  
+  // 更新 providers 中的 gemini 配置（保持兼容性）
+  settings.providers["gemini"] = {
+    apiKey: primaryApiKey,
+    enabled,
+    baseUrl,
+  };
+  
+  // 更新 Gemini 特殊配置
+  settings.geminiSettings = {
+    apiKey: primaryApiKey,
+    freeApiKey: freeApiKey || undefined,
+    paidApiKey: paidApiKey || undefined,
+    enabled,
+    baseUrl,
+  };
+  
+  saveAISettings(settings);
+  return settings;
+}
+
+/**
+ * 根据模型获取 Gemini 的 API Key
+ * 仅 gemini-3-pro-preview 必须使用付费 Key，其他模型优先使用免费 Key
+ */
+export function getGeminiApiKeyForModel(
+  settings: AISettings,
+  model: string
+): string | null {
+  const geminiSettings = settings.geminiSettings;
+  const geminiProvider = settings.providers["gemini"];
+  
+  if (!geminiProvider?.enabled) {
+    return null;
+  }
+  
+  // 如果没有特殊配置，使用普通 apiKey
+  if (!geminiSettings) {
+    return geminiProvider.apiKey || null;
+  }
+  
+  // 仅 gemini-3-pro-preview 必须使用付费 Key
+  const isPaidOnlyModel = model === "gemini-3-pro-preview";
+  
+  if (isPaidOnlyModel) {
+    // 必须使用付费 Key
+    return geminiSettings.paidApiKey || null;
+  }
+  
+  // 其他模型（包括 gemini-2.5-pro、flash 等）优先使用免费 Key
+  return geminiSettings.freeApiKey || geminiSettings.paidApiKey || null;
 }
 
 /**
@@ -215,9 +313,22 @@ export function getProviderForFunction(
       gemini: "gemini-3-flash-preview",
     };
 
+    const model = defaultModels[available.providerId] || "";
+    
+    // Gemini 特殊处理：根据模型选择 Key
+    if (available.providerId === "gemini") {
+      const apiKey = getGeminiApiKeyForModel(settings, model);
+      if (!apiKey) return null;
+      return {
+        ...available,
+        apiKey,
+        model,
+      };
+    }
+
     return {
       ...available,
-      model: defaultModels[available.providerId] || "",
+      model,
     };
   }
 
@@ -225,6 +336,18 @@ export function getProviderForFunction(
   const providerConfig = settings.providers[funcConfig.provider];
   if (!providerConfig?.enabled || !providerConfig.apiKey) {
     return null;
+  }
+
+  // Gemini 特殊处理：根据模型选择 Key
+  if (funcConfig.provider === "gemini") {
+    const apiKey = getGeminiApiKeyForModel(settings, funcConfig.model);
+    if (!apiKey) return null;
+    return {
+      providerId: funcConfig.provider,
+      model: funcConfig.model,
+      apiKey,
+      baseUrl: providerConfig.baseUrl,
+    };
   }
 
   return {

@@ -11,6 +11,10 @@ import {
   buildUnifiedSystemPrompt,
   buildSpecialRequestUserMessage,
   buildChatUserMessage,
+  JAILBREAK_SYSTEM_PROMPT,
+  JAILBREAK_TRIGGER,
+  JAILBREAK_TASK_SUFFIX,
+  getJailbreakPrefill,
 } from "@/lib/ai/prompts";
 
 /**
@@ -124,6 +128,7 @@ export async function POST(request: NextRequest) {
       payload,
       userContexts,
       project,
+      jailbreak = false,
       stream = true,
       temperature,
       maxTokens,
@@ -143,8 +148,10 @@ export async function POST(request: NextRequest) {
       model: providerConfig.model,
     };
 
-    // 构建统一的 System Prompt
-    const systemPrompt = buildUnifiedSystemPrompt(project as ProjectInfo | undefined);
+    // 构建统一的 System Prompt（根据是否破限模式选择）
+    const systemPrompt = jailbreak
+      ? JAILBREAK_SYSTEM_PROMPT
+      : buildUnifiedSystemPrompt(project as ProjectInfo | undefined);
 
     // 构建最终消息列表
     let finalMessages: ProviderMessage[] = [
@@ -163,14 +170,27 @@ export async function POST(request: NextRequest) {
       }
 
       // 构建特殊功能的用户消息
-      const specialUserMessage = buildSpecialRequestUserMessage(
+      let specialUserMessage = buildSpecialRequestUserMessage(
         functionType as SpecialFunctionType,
         payload,
         userInput,
         userContexts as UserContextItem[] | undefined
       );
 
+      // 破限模式：追加任务后缀和咒语
+      if (jailbreak) {
+        specialUserMessage += JAILBREAK_TASK_SUFFIX + JAILBREAK_TRIGGER;
+      }
+
       finalMessages.push({ role: "user", content: specialUserMessage });
+
+      // 破限模式：添加预填充的 assistant 消息引导 JSON 输出
+      if (jailbreak) {
+        const prefill = getJailbreakPrefill("special");
+        if (prefill) {
+          finalMessages.push({ role: "assistant", content: prefill });
+        }
+      }
     } else {
       // 普通聊天请求
       if (!userInput) {
@@ -178,12 +198,25 @@ export async function POST(request: NextRequest) {
       }
 
       // 构建普通聊天的用户消息（可能带上下文）
-      const chatUserMessage = buildChatUserMessage(
+      let chatUserMessage = buildChatUserMessage(
         userInput,
         userContexts as UserContextItem[] | undefined
       );
 
+      // 破限模式：追加咒语
+      if (jailbreak) {
+        chatUserMessage += JAILBREAK_TRIGGER;
+      }
+
       finalMessages.push({ role: "user", content: chatUserMessage });
+
+      // 破限模式：添加预填充的 assistant 消息
+      if (jailbreak) {
+        const prefill = getJailbreakPrefill("chat");
+        if (prefill) {
+          finalMessages.push({ role: "assistant", content: prefill });
+        }
+      }
     }
 
     // 确定实际的 AI 功能（用于 debug 信息）

@@ -54,6 +54,7 @@ export function buildUnifiedSystemPrompt(project?: ProjectInfo): string {
 
 /**
  * 特殊功能的任务描述模板
+ * 所有输出格式统一包含 status 字段，正常模式为 "normal"
  */
 const TASK_DESCRIPTIONS: Record<SpecialFunctionType, string> = {
   polish: `【任务类型】文本润色
@@ -70,6 +71,7 @@ const TASK_DESCRIPTIONS: Record<SpecialFunctionType, string> = {
 请以 JSON 格式输出，包含以下字段：
 \`\`\`json
 {
+  "status": "normal",
   "result": "润色后的完整文本",
   "explanation": "简短的修改说明（可选）"
 }
@@ -89,6 +91,7 @@ const TASK_DESCRIPTIONS: Record<SpecialFunctionType, string> = {
 请以 JSON 格式输出，包含以下字段：
 \`\`\`json
 {
+  "status": "normal",
   "result": "扩写后的完整文本",
   "explanation": "简短的修改说明（可选）"
 }
@@ -108,6 +111,7 @@ const TASK_DESCRIPTIONS: Record<SpecialFunctionType, string> = {
 请以 JSON 格式输出，包含以下字段：
 \`\`\`json
 {
+  "status": "normal",
   "result": "缩写后的完整文本",
   "explanation": "简短的修改说明（可选）"
 }
@@ -136,6 +140,7 @@ const TASK_DESCRIPTIONS: Record<SpecialFunctionType, string> = {
 请以 JSON 格式输出：
 \`\`\`json
 {
+  "status": "normal",
   "children": [
     {
       "title": "子节点标题",
@@ -171,6 +176,7 @@ const TASK_DESCRIPTIONS: Record<SpecialFunctionType, string> = {
 请以 JSON 格式输出：
 \`\`\`json
 {
+  "status": "normal",
   "result": "续写的内容（纯文本，不含任何标记，不要包含已有内容）",
   "explanation": "续写思路说明（可选）"
 }
@@ -196,6 +202,7 @@ const TASK_DESCRIPTIONS: Record<SpecialFunctionType, string> = {
 请以 JSON 格式输出：
 \`\`\`json
 {
+  "status": "normal",
   "result": "生成的摘要（50-150字）",
   "explanation": "总结思路说明（可选）"
 }

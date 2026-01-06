@@ -40,6 +40,7 @@ export type { ChatMessage as ProviderMessage } from "./provider";
 // 设置相关
 export {
   type ProviderSettings,
+  type GeminiProviderSettings,
   type FunctionModelConfig,
   type AISettings,
   DEFAULT_AI_SETTINGS,

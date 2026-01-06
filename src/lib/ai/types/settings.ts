@@ -14,6 +14,16 @@ export interface ProviderSettings {
 }
 
 /**
+ * Gemini Provider 的特殊配置（支持免费/付费双 Key）
+ */
+export interface GeminiProviderSettings extends ProviderSettings {
+  /** 免费 API Key（用于 Flash 模型） */
+  freeApiKey?: string;
+  /** 付费 API Key（用于 Pro 模型，也可用于 Flash） */
+  paidApiKey?: string;
+}
+
+/**
  * 功能模型配置
  */
 export interface FunctionModelConfig {
@@ -29,6 +39,9 @@ export interface AISettings {
   providers: {
     [providerId: string]: ProviderSettings;
   };
+
+  /** Gemini 特殊配置（双 Key） */
+  geminiSettings?: GeminiProviderSettings;
 
   /** 各功能使用的模型配置，'auto' 表示自动选择 */
   functionModels: {

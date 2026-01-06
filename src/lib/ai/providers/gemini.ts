@@ -17,9 +17,15 @@ export class GeminiProvider extends OpenAICompatibleProvider {
    */
   static AVAILABLE_MODELS: AIModel[] = [
     {
+      id: "gemini-2.5-pro",
+      name: "Gemini 2.5 Pro",
+      description: "强大的多模态模型，支持免费和付费 API",
+      contextLength: 1048576,
+    },
+    {
       id: "gemini-3-pro-preview",
       name: "Gemini 3 Pro Preview",
-      description: "全球领先的多模态理解模型，最强大的智能体和编程模型",
+      description: "全球领先的多模态理解模型，仅支持付费 API",
       contextLength: 1048576,
     },
     {
@@ -29,6 +35,11 @@ export class GeminiProvider extends OpenAICompatibleProvider {
       contextLength: 1048576,
     },
   ];
+
+  /**
+   * 需要付费 Key 的模型（其他模型优先使用免费 Key）
+   */
+  static PAID_ONLY_MODELS = ["gemini-3-pro-preview"];
 
   /**
    * 获取模型列表
