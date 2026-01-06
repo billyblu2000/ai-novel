@@ -13,6 +13,7 @@ export {
 
 export {
   JAILBREAK_SYSTEM_PROMPT,
+  buildJailbreakSystemPrompt,
   JAILBREAK_TRIGGER,
   JAILBREAK_TASK_SUFFIX,
   JAILBREAK_PREFILL_CHAT,

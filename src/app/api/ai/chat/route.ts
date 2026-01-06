@@ -11,7 +11,7 @@ import {
   buildUnifiedSystemPrompt,
   buildSpecialRequestUserMessage,
   buildChatUserMessage,
-  JAILBREAK_SYSTEM_PROMPT,
+  buildJailbreakSystemPrompt,
   JAILBREAK_TRIGGER,
   JAILBREAK_TASK_SUFFIX,
   getJailbreakPrefill,
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
 
     // 构建统一的 System Prompt（根据是否破限模式选择）
     const systemPrompt = jailbreak
-      ? JAILBREAK_SYSTEM_PROMPT
+      ? buildJailbreakSystemPrompt(project as ProjectInfo | undefined)
       : buildUnifiedSystemPrompt(project as ProjectInfo | undefined);
 
     // 构建最终消息列表
