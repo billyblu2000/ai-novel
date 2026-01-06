@@ -11,6 +11,7 @@ import type {
   AIContext,
   PlanPayload,
   ContinuePayload,
+  SummarizePayload,
 } from "@/lib/ai/types";
 import type { Entity, Node } from "@/types";
 
@@ -386,4 +387,59 @@ export function buildContinueContext(
   }
 
   return context;
+}
+
+/**
+ * 构建总结功能上下文的参数
+ */
+export interface BuildSummarizeContextParams {
+  /** 当前节点 */
+  currentNode: Node;
+  /** 所有节点列表（用于查找子节点） */
+  allNodes: Node[];
+  /** 文档的正文内容（仅当节点为 FILE 时需要） */
+  fileContent?: string;
+}
+
+/**
+ * 构建总结功能的上下文
+ * 返回 SummarizePayload 类型（不含 nodeId）
+ */
+export function buildSummarizeContext(
+  params: BuildSummarizeContextParams
+): Omit<SummarizePayload, "nodeId"> {
+  const { currentNode, allNodes, fileContent } = params;
+
+  const nodeType = currentNode.type as "FOLDER" | "FILE";
+  let content: string;
+
+  if (nodeType === "FILE") {
+    // 文档：使用正文内容
+    content = fileContent || currentNode.content || "";
+  } else {
+    // 文件夹：构建子节点信息
+    const children = allNodes
+      .filter((n) => n.parent_id === currentNode.id)
+      .sort((a, b) => a.order.localeCompare(b.order));
+
+    if (children.length === 0) {
+      content = "（暂无子内容）";
+    } else {
+      const childrenInfo = children.map((child, index) => {
+        const typeLabel = child.type === "FOLDER" ? "章节" : "场景";
+        const summary = child.type === "FILE" 
+          ? (child.summary || "无摘要") 
+          : (child.outline || "无大纲");
+        return `${index + 1}. 【${typeLabel}】${child.title}\n   摘要：${summary}`;
+      });
+      content = childrenInfo.join("\n\n");
+    }
+  }
+
+  return {
+    nodeName: currentNode.title,
+    nodeType,
+    content,
+    currentSummary: nodeType === "FILE" ? currentNode.summary : currentNode.outline,
+  };
 }

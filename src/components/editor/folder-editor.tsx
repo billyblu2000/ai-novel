@@ -12,9 +12,9 @@ import { useNodes, buildTree, TreeNode } from "@/lib/hooks";
 import { useEditorStore } from "@/lib/stores";
 import { useAIStore } from "@/lib/stores/ai-store";
 import { useAIRequest } from "@/lib/ai/hooks";
-import { buildPlanContext } from "@/lib/ai/context-builder";
+import { buildPlanContext, buildSummarizeContext } from "@/lib/ai/context-builder";
 import { cn } from "@/lib/utils";
-import type { PlanPayload } from "@/lib/ai/types";
+import type { PlanPayload, SummarizePayload } from "@/lib/ai/types";
 
 interface FolderEditorProps {
   node: Node;
@@ -203,6 +203,55 @@ export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProp
     setPendingSpecialFunction,
   ]);
 
+  // 检查是否可以使用AI总结（需要有子节点）
+  const canUseSummarize = useMemo(() => {
+    return !isNotesMode && children.length > 0;
+  }, [isNotesMode, children.length]);
+
+  const handleAISummarize = useCallback(() => {
+    if (!canUseSummarize) {
+      toast.error("请先添加子内容后再使用AI总结");
+      return;
+    }
+
+    // 构建总结上下文
+    const summarizeContext = buildSummarizeContext({
+      currentNode: { ...node, outline }, // 使用最新的outline
+      allNodes: nodes,
+    });
+
+    // 构建 SummarizePayload
+    const payload: SummarizePayload = {
+      nodeId: node.id,
+      ...summarizeContext,
+    };
+
+    // 设置待发送的特殊功能
+    setPendingSpecialFunction({
+      functionType: "summarize",
+      payload,
+      displayText: `总结「${node.title}」`,
+    });
+
+    // 打开聊天窗口
+    toggleChatWindow(true);
+  }, [canUseSummarize, node, outline, nodes, setPendingSpecialFunction, toggleChatWindow]);
+
+  // Listen for AI apply summarize event (for folder, apply to outline)
+  useEffect(() => {
+    const handleApplySummarize = (e: CustomEvent<{ summary: string }>) => {
+      const { summary } = e.detail;
+      setOutline(summary);
+      setDirty(true);
+      toast.success("大纲已应用");
+    };
+
+    window.addEventListener("ai-apply-summarize", handleApplySummarize as EventListener);
+    return () => {
+      window.removeEventListener("ai-apply-summarize", handleApplySummarize as EventListener);
+    };
+  }, [setDirty]);
+
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
@@ -225,10 +274,23 @@ export function FolderEditor({ node, projectId, onNodeSelect }: FolderEditorProp
           {/* Outline Section (manuscript only) */}
           {!isNotesMode && (
             <div className="mb-8">
-              <h2 className="text-lg font-medium mb-3 flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                大纲
-              </h2>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-medium flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  大纲
+                </h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleAISummarize}
+                  disabled={!canUseSummarize}
+                  className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  title={canUseSummarize ? "根据子内容自动生成大纲" : "请先添加子内容"}
+                >
+                  <Sparkles className="h-3.5 w-3.5 mr-1" />
+                  AI 总结
+                </Button>
+              </div>
               <TiptapEditor
                 content={outline}
                 placeholder="在这里编写大纲和写作计划..."

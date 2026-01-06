@@ -130,10 +130,14 @@ export interface ContinuePayload {
 export interface SummarizePayload {
   /** 当前节点 ID */
   nodeId: string;
-  /** 需要总结的内容 */
-  content: string;
+  /** 当前节点名称 */
+  nodeName: string;
   /** 节点类型 */
   nodeType: "FOLDER" | "FILE";
+  /** 需要总结的内容（文档为正文，文件夹为子节点信息） */
+  content: string;
+  /** 当前摘要（如果有） */
+  currentSummary?: string;
 }
 
 /**

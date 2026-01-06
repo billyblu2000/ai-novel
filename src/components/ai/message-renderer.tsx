@@ -19,6 +19,7 @@ import {
 import { AIModifyResultCard } from "./ai-modify-result-card";
 import { AIPlanResultCard } from "./ai-plan-result-card";
 import { AIContinueResultCard } from "./ai-continue-result-card";
+import { AISummarizeResultCard } from "./ai-summarize-result-card";
 import { AISpecialRequestCard } from "./ai-special-request-card";
 import { MessageContextTags } from "./ai-context-tags";
 
@@ -204,7 +205,11 @@ function SpecialResultBubble({
                 message={message as SpecialResultMessage<"continue">}
               />
             )}
-            {/* TODO: summarize */}
+            {functionType === "summarize" && (
+              <AISummarizeResultCard
+                message={message as SpecialResultMessage<"summarize">}
+              />
+            )}
           </>
         )}
       </div>

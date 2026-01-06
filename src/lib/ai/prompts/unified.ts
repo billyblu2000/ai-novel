@@ -7,7 +7,7 @@
  */
 
 import type { ProjectInfo, UserContextItem, SpecialFunctionType } from "@/lib/ai/types";
-import type { ModifyPayload, PlanPayload, ContinuePayload } from "@/lib/ai/types/message";
+import type { ModifyPayload, PlanPayload, ContinuePayload, SummarizePayload } from "@/lib/ai/types/message";
 
 /**
  * 统一的 System Prompt
@@ -178,18 +178,26 @@ const TASK_DESCRIPTIONS: Record<SpecialFunctionType, string> = {
 
   summarize: `【任务类型】内容总结
 
-你需要为提供的内容生成摘要：
-- 概括主要情节和事件
-- 提取关键信息
-- 保持摘要的简洁性
+你需要为提供的内容生成摘要。
+
+**要求**：
+- 概括主要情节、事件和核心内容
+- 提取关键信息和重要细节
+- 保持摘要的简洁性和可读性
 - 摘要长度控制在 50-150 字
+- 使用第三人称客观描述
+
+**注意**：
+- 如果是场景（文档），重点概括情节发展和人物行为
+- 如果是章节（文件夹），重点概括各子内容的整体脉络
+- 不要添加原文没有的信息
 
 【输出格式】
 请以 JSON 格式输出：
 \`\`\`json
 {
-  "result": "生成的摘要",
-  "explanation": "总结要点说明（可选）"
+  "result": "生成的摘要（50-150字）",
+  "explanation": "总结思路说明（可选）"
 }
 \`\`\``,
 };
@@ -366,6 +374,31 @@ function formatContinuePayload(payload: ContinuePayload): string {
 }
 
 /**
+ * 格式化总结功能的 Payload
+ */
+function formatSummarizePayload(payload: SummarizePayload): string {
+  const parts: string[] = [];
+
+  // 1. 节点信息
+  const typeLabel = payload.nodeType === "FILE" ? "场景" : "章节";
+  parts.push(`【${typeLabel}名称】\n${payload.nodeName}`);
+
+  // 2. 当前摘要（如果有）
+  if (payload.currentSummary && payload.currentSummary.trim()) {
+    parts.push(`【当前摘要】\n${payload.currentSummary}`);
+  }
+
+  // 3. 需要总结的内容
+  if (payload.nodeType === "FILE") {
+    parts.push(`【场景正文】\n${payload.content}`);
+  } else {
+    parts.push(`【子内容列表】\n${payload.content}`);
+  }
+
+  return parts.join("\n\n---\n\n");
+}
+
+/**
  * 构建特殊功能的用户消息
  * 将功能描述、上下文、用户额外指令整合到一条消息中
  */
@@ -408,8 +441,7 @@ export function buildSpecialRequestUserMessage(
       parts.push(formatContinuePayload(payload as ContinuePayload));
       break;
     case "summarize":
-      // TODO: 实现总结的 payload 格式化
-      parts.push(`【任务数据】\n${JSON.stringify(payload, null, 2)}`);
+      parts.push(formatSummarizePayload(payload as SummarizePayload));
       break;
   }
 

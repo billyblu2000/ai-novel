@@ -15,6 +15,7 @@ import type {
   ModifyResult,
   PlanResult,
   ContinueResult,
+  SummarizeResult,
 } from "@/lib/ai/types";
 import { isTextMessage, isModifyFunctionType } from "@/lib/ai/types";
 
@@ -149,6 +150,33 @@ function parseContinueResult(content: string): ContinueResult {
   }
   // 如果解析失败，将整个内容作为结果返回
   return { content: content.trim() };
+}
+
+/**
+ * 解析总结功能的 JSON 输出
+ */
+function parseSummarizeResult(content: string): SummarizeResult {
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed.result) {
+      return { summary: parsed.result };
+    }
+  } catch {
+    // 尝试从 markdown 代码块中提取 JSON
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[1].trim());
+        if (parsed.result) {
+          return { summary: parsed.result };
+        }
+      } catch {
+        // 解析失败
+      }
+    }
+  }
+  // 如果解析失败，将整个内容作为结果返回
+  return { summary: content.trim() };
 }
 
 /**
@@ -378,8 +406,16 @@ export function useAIRequest() {
               isStreaming: false,
               streamingContent: undefined,
             });
+          } else if (ft === "summarize") {
+            const result = parseSummarizeResult(fullContent);
+            updateSpecialResult(resultMessageId, {
+              result: result as Partial<
+                import("@/lib/ai/types").SpecialResultMap["summarize"]
+              >,
+              isStreaming: false,
+              streamingContent: undefined,
+            });
           }
-          // TODO: summarize
         }
 
         setStreaming(false);

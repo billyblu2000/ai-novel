@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { toast } from "sonner";
-import { CalendarDays, MapPin, FileText } from "lucide-react";
+import { CalendarDays, MapPin, FileText, Sparkles } from "lucide-react";
 import { EntityAwareEditor } from "./entity-aware-editor";
 import { EditorToolbar } from "./editor-toolbar";
 import { Button } from "@/components/ui/button";
@@ -20,8 +20,8 @@ import { useNodes } from "@/lib/hooks";
 import { useEntities, useMentions } from "@/lib/hooks/use-entities";
 import { useEditorStore } from "@/lib/stores";
 import { useAIStore } from "@/lib/stores/ai-store";
-import { buildContinueContext } from "@/lib/ai/context-builder";
-import type { ContinuePayload } from "@/lib/ai/types";
+import { buildContinueContext, buildSummarizeContext } from "@/lib/ai/context-builder";
+import type { ContinuePayload, SummarizePayload } from "@/lib/ai/types";
 import { cn } from "@/lib/utils";
 import { countEntityFrequencies } from "@/lib/entity-matcher";
 
@@ -245,6 +245,47 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
     toggleChatWindow(true);
   }, [node, nodes, entities, setPendingSpecialFunction, toggleChatWindow]);
 
+  // Handle AI summarize
+  const handleAISummarize = useCallback(() => {
+    // 构建总结上下文
+    const summarizeContext = buildSummarizeContext({
+      currentNode: node,
+      allNodes: nodes,
+      fileContent: content,
+    });
+
+    // 构建完整的 SummarizePayload
+    const payload: SummarizePayload = {
+      nodeId: node.id,
+      ...summarizeContext,
+    };
+
+    // 设置待发送的特殊功能
+    setPendingSpecialFunction({
+      functionType: "summarize",
+      payload,
+      displayText: `总结「${node.title}」`,
+    });
+
+    // 打开聊天窗口
+    toggleChatWindow(true);
+  }, [node, nodes, content, setPendingSpecialFunction, toggleChatWindow]);
+
+  // Listen for AI apply summarize event
+  useEffect(() => {
+    const handleApplySummarize = (e: CustomEvent<{ summary: string }>) => {
+      const { summary: newSummary } = e.detail;
+      setSummary(newSummary);
+      setDirty(true);
+      toast.success("摘要已应用");
+    };
+
+    window.addEventListener("ai-apply-summarize", handleApplySummarize as EventListener);
+    return () => {
+      window.removeEventListener("ai-apply-summarize", handleApplySummarize as EventListener);
+    };
+  }, [setDirty]);
+
   const wordCount = calculateWordCount(content);
   const { lastSavedAt, isSaving } = useEditorStore();
 
@@ -323,7 +364,19 @@ export function FileEditor({ node, projectId }: FileEditorProps) {
 
               {/* Summary */}
               <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground">场景摘要</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm text-muted-foreground">场景摘要</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleAISummarize}
+                    className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    title="AI 自动生成摘要"
+                  >
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    AI 总结
+                  </Button>
+                </div>
                 <textarea
                   value={summary}
                   onChange={(e) => {
